@@ -1,10 +1,9 @@
 import 'User.dart';
 
 class Professor extends User {
-  String _materia;
+  final String _materia;
 
-  Professor(String nome, String email, String senha, String escola,this._materia) 
-  : super (nome,email,senha,escola);
+  Professor(super.nome, super.email, super.senha, super.escola,this._materia);
 
   String get materia => _materia;
 }

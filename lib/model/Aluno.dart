@@ -1,10 +1,9 @@
 import 'User.dart';
 
 class Aluno extends User {
-  String _serie;
-  String _turma;
-  Aluno(String nome, String email, String senha, String escola,this._serie,this._turma) 
-  : super (nome,email,senha,escola);
+  final String _serie;
+  final String _turma;
+  Aluno(super.nome, super.email, super.senha, super.escola,this._serie,this._turma);
 
   String get serie => _serie;
   String get turma => _turma;
