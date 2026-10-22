@@ -26,4 +26,168 @@ class User {
       turma: json['turma'],
     );
   } 
+  class MyApp extends StatelessWidget {
+  const MyApp({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      title: 'Usuários da API',
+      debugShowCheckedModeBanner: false,
+      theme: ThemeData(
+        colorScheme: ColorScheme.fromSeed(
+          seedColor: Colors.blue,
+        ),
+        useMaterial3: true,
+      ),
+      home: const UsersPage(),
+    );
+  }
+}
+
+class UsersPage extends StatefulWidget {
+  const UsersPage({super.key});
+
+  @override
+  State<UsersPage> createState() => _UsersPageState();
+}
+
+class _UsersPageState extends State<UsersPage> {
+  // Use 10.0.2.2 no Android Emulator.
+  // Use localhost no desktop, se a API estiver na mesma máquina.
+  static const String apiUrl =
+      'http://localhost:8080/api/users';
+
+  late Future<List<User>> usersFuture;
+
+  @override
+  void initState() {
+    super.initState();
+
+    // Busca os usuários quando a página é aberta.
+    usersFuture = fetchUsers();
+  }
+
+  Future<List<User>> fetchUsers() async {
+    final response = await http.get(
+      Uri.parse(apiUrl),
+    );
+
+    if (response.statusCode != 200) {
+      throw Exception(
+        'Erro ao buscar usuários: ${response.statusCode}',
+      );
+    }
+
+    final List<dynamic> data =
+        jsonDecode(response.body) as List<dynamic>;
+
+    return data.map((item) {
+      return User.fromJson(
+        item as Map<String, dynamic>,
+      );
+    }).toList();
+  }
+
+  void reloadUsers() {
+    setState(() {
+      usersFuture = fetchUsers();
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Usuários da API'),
+        actions: [
+          IconButton(
+            onPressed: reloadUsers,
+            icon: const Icon(Icons.refresh),
+            tooltip: 'Atualizar usuários',
+          ),
+        ],
+      ),
+      body: FutureBuilder<List<User>>(
+        future: usersFuture,
+        builder: (context, snapshot) {
+          // 1. Enquanto a requisição está em andamento.
+          if (snapshot.connectionState ==
+              ConnectionState.waiting) {
+            return const Center(
+              child: CircularProgressIndicator(),
+            );
+          }
+
+          // 2. Se a requisição falhar.
+          if (snapshot.hasError) {
+            return Center(
+              child: Padding(
+                padding: const EdgeInsets.all(24),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(
+                      Icons.error_outline,
+                      size: 48,
+                      color: Colors.red,
+                    ),
+                    const SizedBox(height: 12),
+                    Text(
+                      'Não foi possível carregar os usuários.',
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      '${snapshot.error}',
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 16),
+                    ElevatedButton(
+                      onPressed: reloadUsers,
+                      child: const Text('Tentar novamente'),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          }
+
+          // 3. Dados recebidos com sucesso.
+          final users = snapshot.data ?? [];
+
+          if (users.isEmpty) {
+            return const Center(
+              child: Text('Nenhum usuário encontrado.'),
+            );
+          }
+
+          return ListView.builder(
+            itemCount: users.length,
+            itemBuilder: (context, index) {
+              final user = users[index];
+
+              return Card(
+                margin: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 6,
+                ),
+                child: ListTile(
+                  leading: CircleAvatar(
+                    child: Text('${user.id}'),
+                  ),
+                  title: Text(user.name),
+                  subtitle: Text('ID: ${user.id}'),
+                  trailing: const Icon(
+                    Icons.person_outline,
+                  ),
+                ),
+              );
+            },
+          );
+        },
+      ),
+    );
+  }
+
 }
