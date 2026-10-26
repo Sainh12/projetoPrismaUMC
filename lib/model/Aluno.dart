@@ -3,13 +3,15 @@ import 'User.dart';
 class Aluno extends User {
   final String _serie;
   final String _turma;
-  Aluno({
+    Aluno({
   required super.nome, 
   required super.email, 
   required super.senha, 
   required super.escola, 
-  required this._serie, 
-  required this._turma});
+  required String serie, 
+  required String turma}):
+  _serie = serie,
+  _turma = turma;
 
   String get serie => _serie;
   String get turma => _turma;

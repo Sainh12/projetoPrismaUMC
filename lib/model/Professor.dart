@@ -8,7 +8,7 @@ class Professor extends User {
     required super.email, 
     required super.senha, 
     required super.escola, 
-    required this._materia});
+    required String materia}):_materia = materia;
 
   String get materia => _materia;
 

@@ -10,18 +10,20 @@ abstract class User {
   final String _senha;
   final String _escola;
 
-
-
-  User({
-    required this._nome, 
-    required this._email, 
-    required this._senha, 
-    required this._escola
-  })
-  : _id = uuid.v4().toString();
-
   String get id => _id;
   String get nome => _nome;
   String get email => _email;
   String get escola => _escola;
+
+  User({
+    required String nome, 
+    required String email, 
+    required String senha, 
+    required String escola
+  })
+  : _id = uuid.v4().toString(),
+    _nome = nome,
+    _email = email,
+    _senha = senha,
+    _escola = escola;
 }
