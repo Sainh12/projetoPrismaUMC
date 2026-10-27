@@ -26,4 +26,6 @@ abstract class User {
     _email = email,
     _senha = senha,
     _escola = escola;
+
+  
 }

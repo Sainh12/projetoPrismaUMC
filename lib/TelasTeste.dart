@@ -1,23 +1,13 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'controller/LoginController.dart';
+import 'model/Aluno.dart';
+import 'model/Professor.dart';
+import 'model/User.dart';
 import 'package:http/http.dart' as http;
 
 void main() {
   runApp (const TelaTeste());
-}
-
-class User {
-  final int id;
-  final String name;
-
-  const User({required this.id, required this.name});
-
-  factory User.fromJson(Map<String, dynamic> json) {
-    return User(
-      id: json['id'] as int,
-      name: json['name'] as String,
-    );
-  }
 }
 
 class TelaTeste extends StatelessWidget{
@@ -36,6 +26,66 @@ class TelaTeste extends StatelessWidget{
     );
   }
 }
+
+class ElevatedButtonExampleApp extends StatelessWidget{
+  const ElevatedButtonExampleApp({super.key});
+
+  @override
+  Widget build(BuildContext context){
+    return MaterialApp(
+      home: Scaffold(
+        appBar: AppBar(title: const Text('Professor')),
+        body: const ElevatedButtonExample(),
+      ),
+    );
+  }
+}
+
+void _abrirTelaLoginProfessor(){
+  Navigator.push(
+    context,
+    MaterialPageRoute<void>(
+      builder : (context) => const TelaLoginProfessor(),
+    )
+  )
+}
+
+
+class ElevatedButtonExample extends StatefulWidget{
+  const ElevatedButtonExample({super.key});
+
+  @override
+  State <ElevatedButtonExample> createState() => _ElevatedButtonExample();
+}
+class _ElevatedButtonExampleState extends State<ElevatedButtonExample> {
+
+  @override
+  Widget build(BuildContext context){
+    final ButtonStyle style = ElevatedButton.styleFrom(
+      textStyle: const TextStyle (fontSize:20),
+    );
+
+    return Center(
+      child: Column(
+        mainAxisSize: .min,
+        children: <Widget>[
+          ElevatedButton(
+            style: style,
+            onPressed: _abrirTelaLoginProfessor,
+            child: const Text('Disabled'),
+          ),
+          const SizedBox(height: 30),
+          ElevatedButton(
+            style: style,
+            onPressed: () {},
+            child: const Text('Enabled'),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class UsersPage extends StatefulWidget {
   const UsersPage({super.key});
 
