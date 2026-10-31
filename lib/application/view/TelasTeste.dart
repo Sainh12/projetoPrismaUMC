@@ -1,7 +1,7 @@
 import 'dart:convert';
-import 'model/Aluno.dart';
-import 'model/Professor.dart';
-import 'model/User.dart';
+import '../../domain/Aluno.dart';
+import '../../domain/Professor.dart';
+import '../../domain/User.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 
