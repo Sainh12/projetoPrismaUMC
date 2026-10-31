@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="ProjectModuleManager">
+    <modules>
+      <module fileurl="file://$PROJECT_DIR$/projeto_base_prisma.iml" filepath="$PROJECT_DIR$/projeto_base_prisma.iml" />
+      <module fileurl="file://$PROJECT_DIR$/android/projeto_base_prisma_android.iml" filepath="$PROJECT_DIR$/android/projeto_base_prisma_android.iml" />
+    </modules>
+  </component>
+</project>

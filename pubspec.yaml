@@ -13,6 +13,7 @@ dependencies:
   http: ^1.6.0
   shelf: ^1.4.3
   shelf_router: ^1.1.5
+  shelf_multipart: ^1.0.0
   uuid: ^4.6.0
   sqflite: ^2.3.0
   path: ^1.8.3
