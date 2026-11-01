@@ -25,6 +25,7 @@ class fileControll {
   Future<void> iniciarServidor() async {
     router.post('/api/upload', _uploadVideo);
     router.get('/api/video/<videoName>', _getVideo);
+    router.delete('api/video/<videoName>', _deleteVideo);
     final servidor = await io.serve(
       const Pipeline().addMiddleware(logRequests()).addHandler(router.call),
       'localhost' /*InternetAddress.anyIPv4*/,
@@ -34,7 +35,7 @@ class fileControll {
       'Servidor rodando em http://${servidor.address.host}:${servidor.port}',
     );
   }
-
+//====================================================================
   Future<Response> _uploadVideo(Request request) async {
     if (!request.isMultipart) {
       return Response.badRequest(body: 'Requisição não é multipart/form-data');
@@ -90,6 +91,7 @@ class fileControll {
     }
   }
 
+//==================================================================
   //Acessa os videos salvos e reproduz por uma requisição GET
   Future<Response> _getVideo(Request request, String nome) async {
     //sanitiza o nome para impedir que acesse o arquivo fora
@@ -157,5 +159,25 @@ class fileControll {
         'accept-ranges' : 'bytes',
         },
     );
+  }
+
+//=================================================================
+  Future<Response> _deleteVideo(Request request, String nome) async{
+    final safeName = p.basename(nome);
+    final arquivo = File(p.join('uploads',safeName));
+
+    if (!await arquivo.exists()){
+      return Response.notFound('Video não encontrado');
+    }
+
+    try {
+      await arquivo.delete();
+      print ('Arquivo deletado: $safeName');
+      return Response.ok('{"deletado" : "$safeName"}',
+      headers:{'content-type' : 'application/json'});
+    } catch (e, st){
+      print ('Erro ao deletar: $e\n$st');
+      return Response.internalServerError(body: 'Erro ao deletar video');
+    }
   }
 }
