@@ -23,7 +23,7 @@ class DatabaseHelperUsers{
     nome TEXT NOT NULL,
     email TEXT NOT NULL,
     escola TEXT NOT NULL,
-    senha TEXT NOT NULL,
+    senha TEXT NOT NULL)
 ''');
       }
     );

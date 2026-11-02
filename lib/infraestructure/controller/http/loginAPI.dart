@@ -7,6 +7,11 @@ import 'package:shelf_router/shelf_router.dart';
 class ApiServer {
   final router = Router();
   void start() async {
+    router.get('/api/test', _getTest);
+    router.get('/api/users', _getUser);
+    router.post("/api/users", _postLogin);
+    router.post("/api/users/professor", _postProfessor);
+    router.post("/api/users/aluno", _postAluno);
     final handler = Pipeline()
         .addMiddleware(logRequests())
         .addHandler(router.call);
@@ -15,8 +20,7 @@ class ApiServer {
   }
 
 //====================================================================
-  void getTest() async {
-    router.get('/api/users', (Request request) {
+  Future<Response> _getTest() async {
       final users = [
         {
           'id': '1',
@@ -39,22 +43,21 @@ class ApiServer {
         jsonEncode(users),
         headers: {'content-type': 'application/json; charset=utf-8'},
       );
-    });
-  }
+    }
+}
 
 //====================================================================
-  void get() async {
-    router.get('/api/users', (Request request) {
-      
+  Future<Response> _getUser() async {
+     {
       return Response.ok(
         jsonEncode({'message': 'Requisição GET recebida com sucesso'}),
         headers: {'content-type': 'application/json; charset=utf-8'},
       );
-    });
+    }
   }
 //====================================================================
-  void post() async {
-    router.post("/api/users", (Request request) async {
+  Future<Response> _postLogin(Request request) async {
+    {
       //Lê o corpo da requisição
       final body = await request.readAsString();
 
@@ -62,13 +65,13 @@ class ApiServer {
       final data = jsonDecode(body) as Map<String, dynamic>;
 
       //Acessas os valores
-      final String name = data['name'] as String;
+      final String nome = data['nome'] as String;
       final String email = data['email'] as String;
-      final String password = data['password'] as String;
-      final String school = data['school'] as String;
+      final String senha = data['senha'] as String;
+      final String escola = data['escola'] as String;
 
       print(
-        'Recebido: name=$name, email=$email, password=$password, school=$school',
+        'Recebido: nome=$nome, email=$email, escola=$escola',
       );
 
       //Resposta para o flutter
@@ -78,12 +81,11 @@ class ApiServer {
         body:jsonEncode({'message': 'Usuário recebido com sucesso'}),
         headers: {'content-type': 'application/json; charset=utf-8'},
       );
-    });
+    }
   }
 
 //==================================================================
-  void postProfessor() async {
-    router.post("/api/users/professor", (Request request) async {
+  Future<Response> _postProfessor(Request request) async {
       //Lê o corpo da requisição
       final body = await request.readAsString();
 
@@ -108,12 +110,10 @@ class ApiServer {
         body:jsonEncode({'message': 'Usuário recebido com sucesso'}),
         headers: {'content-type': 'application/json; charset=utf-8'},
       );
-    });
-  }
+    }
 
 //==================================================================
-  void postAluno() async {
-    router.post("/api/users/aluno", (Request request) async {
+  Future<Response> _postAluno(Request request) async {
       //Lê o corpo da requisição
       final body = await request.readAsString();
 
@@ -140,6 +140,5 @@ class ApiServer {
         body:jsonEncode({'message': 'Usuário recebido com sucesso'}),
         headers: {'content-type': 'application/json; charset=utf-8'},
       );
-    });
-  }
-}
+    }
+

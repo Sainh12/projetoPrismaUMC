@@ -11,7 +11,7 @@ class fileControll {
   final router = Router();
 
   static const _extensoesPermitidas = {'.mp4', '.mov', '.avi', '.mkv', '.webm'};
-  static const _camposAceitos = {'video', 'imagem'};
+  static const _camposAceitos = {'video', 'file', 'arquivo'};
 
   static const _tiposMime = {
     '.mp4': 'video/mp4',
@@ -25,7 +25,7 @@ class fileControll {
   Future<void> iniciarServidor() async {
     router.post('/api/upload', _uploadVideo);
     router.get('/api/video/<videoName>', _getVideo);
-    router.delete('api/video/<videoName>', _deleteVideo);
+    router.delete('/api/video/<videoName>', _deleteVideo);
     final servidor = await io.serve(
       const Pipeline().addMiddleware(logRequests()).addHandler(router.call),
       'localhost' /*InternetAddress.anyIPv4*/,
@@ -79,17 +79,17 @@ class fileControll {
             await caminhoFinal.delete();
             rethrow;
           }
-
+        }
           print("Arquivo recebido e salvo em: $caminhoFinal");
           return Response.ok("Arquivo salvo com sucesso");
         }
-      }
-      return Response.badRequest(body: "Nenhum arquivo foi enviado");
-    } catch (e, st) {
+      }catch (e, st) {
       print('Erro ao processar upload: $e\n$st');
       return Response.internalServerError(body: 'Erro ao processar');
     }
-  }
+      return Response.badRequest(body: "Nenhum arquivo foi enviado");
+    } 
+  
 
 //==================================================================
   //Acessa os videos salvos e reproduz por uma requisição GET
@@ -103,7 +103,7 @@ class fileControll {
     }
 
     final tamanho = await arquivo.length();
-    final tipo =
+    final tipo = 
         _tiposMime[p.extension(safeName).toLowerCase()] ??
         'application/octet-stream';
     final rangeHeader = request.headers['range'];
@@ -181,3 +181,4 @@ class fileControll {
     }
   }
 }
+
