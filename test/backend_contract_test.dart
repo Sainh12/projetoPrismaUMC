@@ -24,6 +24,10 @@ Future<Response> _send(
 }
 
 void main() {
+  final api = ApiServer();
+
+  setUpAll(api.start);
+
   group('modelos do domínio', () {
     test('Aluno.fromJson cria aluno com os campos recebidos', () {
       final aluno = Aluno.fromJson({
@@ -63,27 +67,17 @@ void main() {
   });
 
   group('API HTTP de usuários', () {
-    test(
-      'GET /api/users retorna a lista de usuários de demonstração',
-      () async {
-        final api = ApiServer();
-        api.start();
+    test('GET /api/test retorna a lista de usuários de demonstração', () async {
+      final response = await _send(api, 'GET', '/api/test');
+      final users = jsonDecode(await response.readAsString()) as List<dynamic>;
 
-        final response = await _send(api, 'GET', '/api/users');
-        final users =
-            jsonDecode(await response.readAsString()) as List<dynamic>;
-
-        expect(response.statusCode, 200);
-        expect(response.headers['content-type'], contains('application/json'));
-        expect(users, hasLength(2));
-        expect((users.first as Map<String, dynamic>)['id'], '1');
-      },
-    );
+      expect(response.statusCode, 200);
+      expect(response.headers['content-type'], contains('application/json'));
+      expect(users, hasLength(2));
+      expect((users.first as Map<String, dynamic>)['id'], '1');
+    });
 
     test('GET /api/users retorna a mensagem de confirmação', () async {
-      final api = ApiServer();
-      api.start();
-
       final response = await _send(api, 'GET', '/api/users');
       final body = jsonDecode(await response.readAsString());
 
@@ -94,18 +88,15 @@ void main() {
     test(
       'POST /api/users aceita o formato de usuário usado pela API',
       () async {
-        final api = ApiServer();
-        api.start();
-
         final response = await _send(
           api,
           'POST',
           '/api/users',
           body: jsonEncode({
-            'name': 'Usuário Teste',
+            'nome': 'Usuário Teste',
             'email': 'usuario@example.test',
-            'password': 'senha-de-teste',
-            'school': 'Escola Teste',
+            'senha': 'senha-de-teste',
+            'escola': 'Escola Teste',
           }),
           headers: {'content-type': 'application/json'},
         );
@@ -117,9 +108,6 @@ void main() {
     );
 
     test('POST /api/users/professor aceita os campos específicos', () async {
-      final api = ApiServer();
-      api.start();
-
       final response = await _send(
         api,
         'POST',
@@ -141,9 +129,6 @@ void main() {
     });
 
     test('POST /api/users/aluno aceita os campos específicos', () async {
-      final api = ApiServer();
-      api.start();
-
       final response = await _send(
         api,
         'POST',
@@ -166,8 +151,6 @@ void main() {
     });
 
     test('rota não registrada retorna 404', () async {
-      final api = ApiServer();
-
       final response = await _send(api, 'GET', '/rota-inexistente');
 
       expect(response.statusCode, 404);

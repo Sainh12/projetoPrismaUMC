@@ -2,13 +2,14 @@ import 'User.dart';
 
 class Professor extends User {
   final String _materia;
-
   Professor({
+    super.id,
     required super.nome, 
     required super.email, 
     required super.senha, 
     required super.escola, 
-    required String materia}):_materia = materia;
+    required String materia,  
+    }):_materia = materia;
 
   String get materia => _materia;
 
@@ -21,5 +22,28 @@ class Professor extends User {
       materia : json ['materia'] as String,
     );
   }
+
+  void printar(){
+    print(id);
+  }
+  
+  Map<String, Object?> toMap() => {
+    if(id != null) 'id' : id ,
+    'nome' : nome,
+    'email' : email,
+    'senha' : senha,
+    'escola' : escola,
+    'materia' : materia,
+  };
+
+  factory Professor.fromMap(Map<String, dynamic> map) => 
+  Professor(
+    id : map['id'] as String,
+    nome: map['nome'] as String,
+    email: map['email'] as String,
+    senha: map['senha'] as String,
+    escola: map['escola'] as String,
+    materia: map ['materia'] as String
+  );
 
 }

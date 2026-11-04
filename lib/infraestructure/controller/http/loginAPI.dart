@@ -20,7 +20,7 @@ class ApiServer {
   }
 
 //====================================================================
-  Future<Response> _getTest() async {
+  Future<Response> _getTest(Request request) async {
       final users = [
         {
           'id': '1',
@@ -47,7 +47,7 @@ class ApiServer {
 }
 
 //====================================================================
-  Future<Response> _getUser() async {
+  Future<Response> _getUser(Request request) async {
      {
       return Response.ok(
         jsonEncode({'message': 'Requisição GET recebida com sucesso'}),
@@ -93,14 +93,14 @@ class ApiServer {
       final data = jsonDecode(body) as Map<String, dynamic>;
 
       //Acessas os valores
-      final String name = data['name'] as String;
+      final String nome = data['nome'] as String;
       final String email = data['email'] as String;
-      final String password = data['password'] as String;
-      final String school = data['school'] as String;
+      final String senha = data['senha'] as String;
+      final String escola = data['escola'] as String;
       final String materia = data['materia'] as String;
 
       print(
-        'Recebido: name=$name, email=$email, password=$password, school=$school, materia=$materia',
+        'Recebido: nome=$nome, email=$email, escola=$escola, materia=$materia',
       );
 
       //Resposta para o flutter
@@ -121,16 +121,16 @@ class ApiServer {
       final data = jsonDecode(body) as Map<String, dynamic>;
 
       //Acessas os valores
-      final String name = data['name'] as String;
+      final String nome = data['nome'] as String;
       final String email = data['email'] as String;
-      final String password = data['password'] as String;
-      final String school = data['school'] as String;
+      final String senha = data['senha'] as String;
+      final String escola = data['escola'] as String;
       final String serie = data['serie'] as String;
       final String turma = data['turma'] as String;
 
 
       print(
-        'Recebido: name=$name, email=$email, password=$password, school=$school, serie=$serie, turma=$turma',
+        'Recebido: nome=$nome, email=$email, escola=$escola, serie=$serie, turma=$turma',
       );
 
       //Resposta para o flutter
