@@ -1,48 +1,86 @@
 import 'package:sqflite/sqflite.dart';
+
 import 'database_helper_users.dart';
 
+import '/domain/User.dart';
 import '/domain/Professor.dart';
+import '/domain/Aluno.dart';
 
 class GerenciadorBancoDeDados {
-
-  Future<int> insertUserProfessor(Professor professor) async {
+  Future<int> insertUser(User user) async {
     final Database db = await DatabaseHelperUsers.instance.database;
-    List<Professor> lista= await getUserProfessorByEmailAndPassword(professor.email, professor.senha);
-    if(lista.length>=1){
+    List<User> lista = await getUserByEmailAndPassword(
+      user.email,
+      user.senha,
+    );
+    if (lista.isNotEmpty) {
       return (0);
     }
-    return db.insert('professor', professor.toMap());
+
+    return await db.transaction((txn) async {
+      try {
+        for (final e in user.toMap().entries) {
+          await txn.insert(e.key, e.value);
+        }
+        return (1);
+      } catch (e) {
+        print("valores invalidos");
+        return (0);
+      }
+    });
   }
 
-  Future<List<Professor>> getUserProfessorByEmailAndPassword (String email, String senha) async {
+  Future<List<User>> getUserByEmailAndPassword(
+    String email,
+    String senha,
+  ) async {
     final Database db = await DatabaseHelperUsers.instance.database;
-    final professor = await db.query(
-      'Professor',
+    final user = await db.query(
+      '''
+      Usuarios u 
+      LEFT JOIN Professores p ON p.id = u.usuario_id
+      LEFT JOIN Alunos a ON a.id = u.usuario_id
+      ''',
+      columns: [
+      'u*', 
+      'p.licenciatura', 'p.materia', 
+      'a.serie'],
       where: 'email LIKE ? AND senha LIKE ?',
-      whereArgs: ['%$email%','%$senha%'],
+      whereArgs: ['%$email%', '%$senha%'],
     );
+    if (user.isEmpty) return [];
 
-    return professor.map(Professor.fromMap).toList();
+    final verificacao = user[0]['tipo_usuario'] as String;
+
+    if (verificacao == 'professor'){
+      return user.map(Professor.fromMap).toList();
+    }
+    return user.map(Aluno.fromMap).toList();
   }
 
-  Future<int> atualizacaoProfessor(Professor professor) async {
-    final id = professor.id;
+  Future<int> atualizacaoUsuario(User user) async {
     final Database db = await DatabaseHelperUsers.instance.database;
-    return db.update(
-      'Professor',
-      professor.toMap(),
-      where: 'id = ?',
-      whereArgs: [id],
-    );
+    return await db.transaction((txn) async {
+      try {
+        for (final e in user.toMap().entries) {
+          await txn.update(e.key, e.value);
+        }
+        return (1);
+      } catch (e) {
+        print("valores invalidos");
+        return (0);
+      }
+      });
   }
 
-  Future<int> deletarProfessor(int id) async {
+
+  Future<int> deletarUser(int id) async {
     final Database db = await DatabaseHelperUsers.instance.database;
     return db.delete(
-      'Professor',
-      where: 'id = ?',
-      whereArgs: [id],
+      'Usuario',
+      where : 'id = ?',
+      whereArgs : [id]
     );
   }
-
 }
+

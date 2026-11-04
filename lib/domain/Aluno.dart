@@ -9,6 +9,7 @@ class Aluno extends User {
   required super.cpf, 
   required super.senha, 
   required super.escola,
+  super.tipoUsuario,
   required String serie,
   }):
   _serie = serie;
@@ -26,6 +27,8 @@ class Aluno extends User {
     );
   }
 
+
+  
   factory Aluno.fromMap(Map<String, dynamic> map) =>
   Aluno(
     id: map['id'] as String,
@@ -34,16 +37,23 @@ class Aluno extends User {
     cpf: map['cpf'] as String,
     senha: map['senha'] as String,
     escola: map ['escola'] as String,
-    serie: map['serie'] as String
+    serie: map['serie'] as String,
+    tipoUsuario: map['tipo_usuario'] as String,
   );
 
-  Map<String, dynamic> toMap()=>{
+  @override
+  Map<String, Map<String, dynamic>> toMap()=>{
+    'Usuarios' : {
     'id' : id,
     'nome' : nome,
     'email' : email,
     'cpf' : cpf,
     'senha' : senha,
     'escola' : escola,
-    'serie' : serie,
+    'tipo_usuario' : 'aluno'
+    },
+    'Aluno' : {
+      'serie' : serie
+    },
   };
 }
