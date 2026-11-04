@@ -5,7 +5,8 @@ class Professor extends User {
   Professor({
     super.id,
     required super.nome, 
-    required super.email, 
+    required super.email,
+    required super.cpf, 
     required super.senha, 
     required super.escola, 
     required String materia,  
@@ -17,6 +18,7 @@ class Professor extends User {
     return Professor(
       nome: json['nome'] as String,
       email : json ['email'] as String,
+      cpf : json ['cpf'] as String,
       senha : json ['senha'] as String,
       escola : json ['escola'] as String,
       materia : json ['materia'] as String,
@@ -28,7 +30,7 @@ class Professor extends User {
   }
   
   Map<String, Object?> toMap() => {
-    if(id != null) 'id' : id ,
+    'id' : id ,
     'nome' : nome,
     'email' : email,
     'senha' : senha,
@@ -41,6 +43,7 @@ class Professor extends User {
     id : map['id'] as String,
     nome: map['nome'] as String,
     email: map['email'] as String,
+    cpf: map ['cpf'] as String,
     senha: map['senha'] as String,
     escola: map['escola'] as String,
     materia: map ['materia'] as String

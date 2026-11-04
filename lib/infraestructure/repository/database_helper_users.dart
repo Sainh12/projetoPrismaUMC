@@ -18,12 +18,33 @@ class DatabaseHelperUsers{
       version:1,
       onCreate: (db,version){
         return db.execute('''
-    CREATE TABLE users (
-    id INTEGER PRIMARY KEY,
-    nome TEXT NOT NULL,
-    email TEXT NOT NULL,
-    escola TEXT NOT NULL,
-    senha TEXT NOT NULL)
+-- =========================================================
+-- TABELA DE USUÁRIOS
+-- =========================================================
+
+CREATE TABLE Usuarios (
+    usuario_id BIGINT UNSIGNED PRIMARY KEY,
+    nome_completo VARCHAR(150) NOT NULL,
+    cpf CHAR(11) NOT NULL UNIQUE,
+    email VARCHAR(254) NOT NULL UNIQUE,
+    senha VARCHAR(255) NOT NULL,
+    tipo_usuario ENUM('professor', 'aluno') NOT NULL
+);
+-- =========================================================
+-- TABELA DE PROFESSORES
+-- =========================================================
+
+CREATE TABLE Professores (
+    id BIGINT UNSIGNED PRIMARY KEY,
+    data_nascimento DATE NOT NULL,
+    licenciatura VARCHAR(150) NOT NULL,
+
+    CONSTRAINT fk_professores_usuario
+        FOREIGN KEY (id)
+        REFERENCES usuarios(usuario_id)
+        ON UPDATE CASCADE
+        ON DELETE RESTRICT
+);
 ''');
       }
     );

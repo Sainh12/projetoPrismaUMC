@@ -8,6 +8,7 @@ abstract class User {
   final String _email;
   final String _senha;
   final String _escola;
+  final String _cpf;
 
   User({
     String? id,
@@ -15,11 +16,13 @@ abstract class User {
     required String email,
     required String senha,
     required String escola,
+    required String cpf
   })  : _id = id ?? uuid.v4.toString(),
         _nome = nome,
         _email = email,
         _senha = senha,
-        _escola = escola;
+        _escola = escola,
+        _cpf = cpf;
 
   String get id => _id;
   String get nome => _nome;

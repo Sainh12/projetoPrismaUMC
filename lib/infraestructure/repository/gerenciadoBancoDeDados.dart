@@ -7,10 +7,14 @@ class GerenciadorBancoDeDados {
 
   Future<int> insertUserProfessor(Professor professor) async {
     final Database db = await DatabaseHelperUsers.instance.database;
+    List<Professor> lista= await getUserProfessorByEmailAndPassword(professor.email, professor.senha);
+    if(lista.length>=1){
+      return (0);
+    }
     return db.insert('professor', professor.toMap());
   }
 
-  Future<Professor> getUserProfessorByEmailAndPassword (String email, String senha) async {
+  Future<List<Professor>> getUserProfessorByEmailAndPassword (String email, String senha) async {
     final Database db = await DatabaseHelperUsers.instance.database;
     final professor = await db.query(
       'Professor',
@@ -18,15 +22,11 @@ class GerenciadorBancoDeDados {
       whereArgs: ['%$email%','%$senha%'],
     );
 
-    return professor.map(Professor.fromMap);
+    return professor.map(Professor.fromMap).toList();
   }
 
   Future<int> atualizacaoProfessor(Professor professor) async {
     final id = professor.id;
-    if (id == null) {
-      throw ArgumentError.Value(professor.id, 'professor.id', 'Não pode ser nulo');
-    }
-
     final Database db = await DatabaseHelperUsers.instance.database;
     return db.update(
       'Professor',
