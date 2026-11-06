@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:projeto_base_prisma/domain/Aluno.dart';
 import 'package:projeto_base_prisma/domain/Professor.dart';
@@ -7,7 +8,7 @@ import 'package:shelf/shelf.dart';
 import 'package:test/test.dart';
 
 Future<Response> _send(
-  ApiServer api,
+  loginApi api,
   String method,
   String path, {
   Object? body,
@@ -24,12 +25,33 @@ Future<Response> _send(
 }
 
 void main() {
-  final api = ApiServer();
-
-  setUpAll(api.start);
-
   group('modelos do domínio', () {
-    test('Aluno.fromJson cria aluno com os campos recebidos', () {
+    test('Aluno.fromJson preserva o ID e os campos de aluno', () {
+      final aluno = Aluno.fromJson({
+        'usuario_id': 'aluno-id-1',
+        'nome': 'Aluno Teste',
+        'email': 'aluno@example.test',
+        'cpf': '12345678901',
+        'senha': 'senha-de-teste',
+        'escola': 'Escola Teste',
+        'tipo_usuario': 'aluno',
+        'serie': '3 ano',
+      });
+
+      expect(aluno.id, 'aluno-id-1');
+      expect(aluno.nome, 'Aluno Teste');
+      expect(aluno.email, 'aluno@example.test');
+      expect(aluno.escola, 'Escola Teste');
+      expect(aluno.serie, '3 ano');
+
+      final map = aluno.toMap();
+      expect(map['Usuarios']?['usuario_id'], 'aluno-id-1');
+      expect(map['Usuarios']?['tipo_usuario'], 'aluno');
+      expect(map['Aluno']?['id'], 'aluno-id-1');
+      expect(map['Aluno']?['serie'], '3 ano');
+    });
+
+    test('Aluno.fromJson cria ID quando o JSON não contém usuario_id', () {
       final aluno = Aluno.fromJson({
         'nome': 'Aluno Teste',
         'email': 'aluno@example.test',
@@ -37,19 +59,15 @@ void main() {
         'senha': 'senha-de-teste',
         'escola': 'Escola Teste',
         'tipo_usuario': 'aluno',
-        'serie': '3º ano',
+        'serie': '3 ano',
       });
 
       expect(aluno.id, isNotEmpty);
-      expect(aluno.nome, 'Aluno Teste');
-      expect(aluno.email, 'aluno@example.test');
-      expect(aluno.senha, 'senha-de-teste');
-      expect(aluno.escola, 'Escola Teste');
-      expect(aluno.serie, '3º ano');
     });
 
-    test('Professor.fromJson cria professor com os campos recebidos', () {
+    test('Professor.fromJson preserva o ID e os campos de professor', () {
       final professor = Professor.fromJson({
+        'usuario_id': 'professor-id-1',
         'nome': 'Professor Teste',
         'email': 'professor@example.test',
         'cpf': '10987654321',
@@ -60,96 +78,93 @@ void main() {
         'licenciatura': 'Matemática',
       });
 
-      expect(professor.id, isNotEmpty);
+      expect(professor.id, 'professor-id-1');
       expect(professor.nome, 'Professor Teste');
       expect(professor.email, 'professor@example.test');
-      expect(professor.senha, 'senha-de-teste');
       expect(professor.escola, 'Escola Teste');
       expect(professor.materia, 'Matemática');
+      expect(professor.licenciatura, 'Matemática');
+
+      final map = professor.toMap();
+      expect(map['Usuarios']?['usuario_id'], 'professor-id-1');
+      expect(map['Usuarios']?['tipo_usuario'], 'professor');
+      expect(map['Professores']?['id'], 'professor-id-1');
+      expect(map['Professores']?['materia'], 'Matemática');
     });
   });
 
-  group('API HTTP de usuários', () {
-    test('GET /api/test retorna a lista de usuários de demonstração', () async {
+  group('rotas acessíveis sem banco de dados', () {
+    late loginApi api;
+    late HttpServer server;
+
+    setUpAll(() async {
+      api = loginApi();
+      server = await api.startApi(
+        handler: api.router.call,
+        address: InternetAddress.loopbackIPv4,
+        port: 0,
+      );
+    });
+
+    tearDownAll(() async {
+      await server.close(force: true);
+    });
+
+    test('GET /api/test retorna a lista de demonstração', () async {
       final response = await _send(api, 'GET', '/api/test');
-      final users = jsonDecode(await response.readAsString()) as List<dynamic>;
+      final body = jsonDecode(await response.readAsString()) as List<dynamic>;
 
       expect(response.statusCode, 200);
       expect(response.headers['content-type'], contains('application/json'));
-      expect(users, hasLength(2));
-      expect((users.first as Map<String, dynamic>)['id'], '1');
-    });
-
-    test('GET /api/users retorna a mensagem de confirmação', () async {
-      final response = await _send(api, 'GET', '/api/users');
-      final body = jsonDecode(await response.readAsString());
-
-      expect(response.statusCode, 200);
-      expect(body, {'message': 'Requisição GET recebida com sucesso'});
+      expect(body, hasLength(2));
+      expect((body.first as Map<String, dynamic>)['id'], '1');
     });
 
     test(
-      'POST /api/users aceita o formato de usuário usado pela API',
+      'GET /api/users/info sem email retorna 400 sem consultar o banco',
       () async {
-        final response = await _send(
-          api,
-          'POST',
-          '/api/users',
-          body: jsonEncode({
-            'nome': 'Usuário Teste',
-            'email': 'usuario@example.test',
-            'senha': 'senha-de-teste',
-            'escola': 'Escola Teste',
-          }),
-          headers: {'content-type': 'application/json'},
-        );
-        final body = jsonDecode(await response.readAsString());
+        final response = await _send(api, 'GET', '/api/users/info');
 
-        expect(response.statusCode, 201);
-        expect(body, {'message': 'Usuário recebido com sucesso'});
+        expect(response.statusCode, 400);
+        expect(jsonDecode(await response.readAsString()), {
+          'message': 'email obrigatório',
+        });
       },
     );
 
-    test('POST /api/users/professor aceita os campos específicos', () async {
+    test('GET /api/users/info com email vazio retorna 400', () async {
+      final response = await _send(api, 'GET', '/api/users/info?email=%20');
+
+      expect(response.statusCode, 400);
+    });
+
+    test('POST /api/users/cadastrar com JSON inválido retorna 400', () async {
       final response = await _send(
         api,
         'POST',
-        '/api/users/professor',
-        body: jsonEncode({
-          'nome': 'Professor Teste',
-          'email': 'professor@example.test',
-          'senha': 'senha-de-teste',
-          'escola': 'Escola Teste',
-          'materia': 'Matemática',
-        }),
+        '/api/users/cadastrar',
+        body: '{',
         headers: {'content-type': 'application/json'},
       );
 
-      expect(response.statusCode, 201);
+      expect(response.statusCode, 400);
       expect(jsonDecode(await response.readAsString()), {
-        'message': 'Usuário recebido com sucesso',
+        'message': 'JSON inválido',
       });
     });
 
-    test('POST /api/users/aluno aceita os campos específicos', () async {
+    test('POST /api/users/cadastrar requer um objeto JSON', () async {
       final response = await _send(
         api,
         'POST',
-        '/api/users/aluno',
-        body: jsonEncode({
-          'nome': 'Aluno Teste',
-          'email': 'aluno@example.test',
-          'senha': 'senha-de-teste',
-          'escola': 'Escola Teste',
-          'serie': '3º ano',
-          'turma': 'A',
-        }),
+        '/api/users/cadastrar',
+        body: jsonEncode(['não', 'é', 'objeto']),
         headers: {'content-type': 'application/json'},
       );
 
-      expect(response.statusCode, 201);
+      expect(response.statusCode, 400);
       expect(jsonDecode(await response.readAsString()), {
-        'message': 'Usuário recebido com sucesso',
+        'message': 'Objeto JSON esperado',
       });
     });
 

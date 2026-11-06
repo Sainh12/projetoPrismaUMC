@@ -18,6 +18,7 @@ class Aluno extends User {
 
   factory Aluno.fromJson(Map<String,dynamic> json){
     return Aluno(
+      id : json ['usuario_id'] as String?,
       nome: json['nome'] as String,
       email : json ['email'] as String,
       senha : json ['senha'] as String,

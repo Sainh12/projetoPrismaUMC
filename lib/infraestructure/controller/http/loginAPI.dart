@@ -1,121 +1,136 @@
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:projeto_base_prisma/infraestructure/repository/gerenciadoBancoDeDados.dart';
 import 'package:shelf/shelf.dart';
 import 'package:shelf/shelf_io.dart' as shelf_io;
 import 'package:shelf_router/shelf_router.dart';
 
+
 import 'package:projeto_base_prisma/domain/Aluno.dart';
 import 'package:projeto_base_prisma/domain/User.dart';
 import 'package:projeto_base_prisma/domain/Professor.dart';
 
 class loginApi {
+
   final router = Router();
   final GerenciadorBancoDeDados gerenciador = GerenciadorBancoDeDados();
-  void start() async {
+
+  Future<HttpServer> startApi({
+    
+    required Handler handler,
+    InternetAddress? address,
+    int port = 8080,
+  }){
     router.get("/api/test", _getTest);
     router.get("/api/users/info", _getUser);
     router.post("/api/users/cadastrar", _postLogin);
     router.get("/api/users/acesso", _enterSystem);
-    router.get("/api/users/atualizar", _atualizarUsuario);
-    router.delete("/api/users/deletar", _deletarUsuario);
+    router.patch("/api/users/<id>", _atualizarUsuario);
+    router.delete("/api/users/<id>", _deletarUsuario);
     //router.post("/api/users/professor", _postProfessor);
     //router.post("/api/users/aluno", _postAluno);
+    return shelf_io.serve(handler, address ?? InternetAddress.loopbackIPv4, port);
+  }
+
+
+  Future<void> main() async {
     final handler = Pipeline()
         .addMiddleware(logRequests())
         .addHandler(router.call);
-    final server = await shelf_io.serve(handler, 'localhost', 8080);
+    final server = await startApi(handler: handler);
+    
     print('API rodando em http://${server.address.host}:${server.port}');
   }
+    
 
-  //====================================================================
-  Future<Response> _getTest(Request request) async {
-    final users = [
-      {
-        'id': '1',
-        'nome': 'Saimon',
-        'email': 'saimon@hotmail.com',
-        'escola': 'Escola A',
-        'serie': '3° ano',
-        'turma': 'A',
-      },
-      {
-        'id': '2',
-        'nome': 'João',
-        'email': 'joaoxeroso@hotmail.com',
-        'escola': 'Escola A',
-        'serie': '3° ano',
-        'turma': 'B',
-      },
-    ];
-    return Response.ok(
-      jsonEncode(users),
-      headers: {'content-type': 'application/json; charset=utf-8'},
-    );
-  }
 
   //====================================================================
   Future<Response> _getUser(Request request) async {
-    try {
-      final body = await request.readAsString();
-      final data = jsonDecode(body) as Map<String, Object?>;
-      final emailRecebido = data['email'] as String;
+      
+      final String? emailRecebido = request.url.queryParameters['email'];
+      if (emailRecebido == null || emailRecebido.trim().isEmpty) {
+    return Response(400, body: '{"message":"email obrigatório"}');
+  }
       final User? user = await gerenciador.getUserByEmail(emailRecebido);
-
       if (user == null) {
         return Response.notFound(
           jsonEncode({'message': 'Usuário não encontrado'}),
-          headers: {'content-type': 'application/json; charset = utf-8'},
+          headers: {'content-type': 'application/json; charset=utf-8'},
         );
       }
+      final responseUser = {
+        'id' : user.id,
+        'nome' : user.nome,
+        'email' : user.email,
+        'cpf' : user.cpf,
+        'escola' : user.escola,
+        'tipo_usuario' : user.tipoUsuario,
+        if (user is Aluno) 'serie' : user.serie,
+        if (user is Professor) ...{
+          'materia' : user.materia,
+          'licenciatura' : user.licenciatura,
+        },
+      };
+
       return Response.ok(
-        jsonEncode({'message': 'Requisição GET recebida com sucesso'}),
+        jsonEncode(responseUser),
         headers: {'content-type': 'application/json; charset=utf-8'},
       );
-    } catch (e) {
-      return Response.badRequest(
-        headers: {'content-type': 'application/json; charset=utf-8'},
-      );
-    }
-  }
+    } 
+  
 
   //====================================================================
   Future<Response> _postLogin(Request request) async {
     {
       //Lê o corpo da requisição
       final body = await request.readAsString();
-
+      final Object? data;
       //Converter o JSON recebido em um mapa Dart
-      final data = jsonDecode(body) as Map<String, dynamic>;
+      try { data = jsonDecode(body);} on FormatException {
+        return Response(400, body: '{"message":"JSON inválido"}');
+      }
+      if (data is! Map<String,dynamic>){
+        return Response(400, body: '{"message":"Objeto JSON esperado"}');
+      }
 
       //Acesso ao Banco de dados
       int resposta = 0 ;
 
       //Acessas os valores
-      if (data['tipo_usuario'] == 'professor') {
+      switch (data['tipo_usuario']) {
+        case 'professor':{
         final professor = Professor.fromJson(data);
         resposta = await gerenciador.insertUser(professor);
-      } else if (data['tipo_usuario'] == 'aluno'){
+        
+      } 
+        case 'aluno':{ 
         final aluno = Aluno.fromJson(data);
         resposta = await gerenciador.insertUser(aluno);
-      }
-
-      //Resposta para o flutter
-      if (resposta == 1) {
+        }
+        default:
         return Response(
+        409,
+        body: jsonEncode({'message': 'usuario tipo_usuario invalido'}),
+        headers: {'content-type': 'application/json; charset=utf-8'},
+      );
+    }
+    if (resposta == 1)
+    {
+      return Response(
           201,
           body: jsonEncode({'message': 'Usuário recebido com sucesso'}),
           headers: {'content-type': 'application/json; charset=utf-8'},
         );
-      }
-      return Response(
-        409,
-        body: jsonEncode({'message': 'usuario já existente'}),
-        headers: {'content-type': 'application/json; charset=utf-8'},
-      );
+    }
+    return Response(
+      400,
+      body: jsonEncode({'message': 'Falha ao inserir os dados'}),
+          headers: {'content-type': 'application/json; charset=utf-8'},
+        );
     }
   }
-
+  
   //========================================================================
   Future<Response> _enterSystem(Request request) async {
     //Formatando informações para trabalhar com elas
@@ -140,10 +155,8 @@ class loginApi {
       headers: {'content-type': 'application/json; charset=utf-8'},
     );
   }
-
-//========================================================================
-
-Future<Response> _atualizarUsuario(Request request) async {
+  
+  Future<Response> _atualizarUsuario(Request request) async {
   final body = await request.readAsString();
   final data = jsonDecode(body) as Map<String, dynamic>;
   int resposta = 0;
@@ -157,18 +170,14 @@ Future<Response> _atualizarUsuario(Request request) async {
   }
   //Resposta para o flutter
       if (resposta == 1) {
-        return Response(
-          204,
-          body: jsonEncode({'message': 'Usuário atualizado com sucesso'}),
-          headers: {'content-type': 'application/json; charset=utf-8'},
-        );
+        return Response(204);
       }
       return Response(
         404,
         body: jsonEncode({'message': 'usuario não encontrado'}),
         headers: {'content-type': 'application/json; charset=utf-8'},
       );
-}
+  }
 
 //========================================================================
   /*Para usar o DELETE antes faça um GET para acessar os dados do user
@@ -201,6 +210,31 @@ Future<Response> _atualizarUsuario(Request request) async {
         body: jsonEncode({'message': 'usuario não encontrado'}),
         headers: {'content-type': 'application/json; charset=utf-8'},
       );
+  }
+  //====================================================================
+  Future<Response> _getTest(Request request) async {
+    final users = [
+      {
+        'id': '1',
+        'nome': 'Saimon',
+        'email': 'saimon@hotmail.com',
+        'escola': 'Escola A',
+        'serie': '3° ano',
+        'turma': 'A',
+      },
+      {
+        'id': '2',
+        'nome': 'João',
+        'email': 'joaoxeroso@hotmail.com',
+        'escola': 'Escola A',
+        'serie': '3° ano',
+        'turma': 'B',
+      },
+    ];
+    return Response.ok(
+      jsonEncode(users),
+      headers: {'content-type': 'application/json; charset=utf-8'},
+    );
   }
 }
 //========================================================================

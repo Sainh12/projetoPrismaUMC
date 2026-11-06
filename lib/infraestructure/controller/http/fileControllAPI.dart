@@ -6,10 +6,12 @@ import 'package:shelf_router/shelf_router.dart';
 import 'package:shelf/shelf_io.dart' as io;
 import 'package:shelf_multipart/form_data.dart';
 import 'package:shelf_multipart/multipart.dart';
+import 'package:uuid/uuid.dart';
 
 class fileControll {
   final router = Router();
 
+  static const int _maxUploadBytes = 100 * 1024 * 1024;
   static const _extensoesPermitidas = {'.mp4', '.mov', '.avi', '.mkv', '.webm'};
   static const _camposAceitos = {'video', 'file', 'arquivo'};
 
@@ -28,18 +30,20 @@ class fileControll {
     router.delete('/api/video/<videoName>', _deleteVideo);
     final servidor = await io.serve(
       const Pipeline().addMiddleware(logRequests()).addHandler(router.call),
-      'localhost' /*InternetAddress.anyIPv4*/,
-      8080,
+      InternetAddress.anyIPv4,
+      8081,
     );
     print(
       'Servidor rodando em http://${servidor.address.host}:${servidor.port}',
     );
   }
-//====================================================================
+
+  //====================================================================
   Future<Response> _uploadVideo(Request request) async {
     if (!request.isMultipart) {
       return Response.badRequest(body: 'Requisição não é multipart/form-data');
     }
+    
 
     try {
       await for (final formData in request.multipartFormData) {
@@ -48,8 +52,7 @@ class fileControll {
 
         //sanitiza: p.basename remove qualquer caminho
         final originalName = p.basename(
-          formData.filename ??
-              'upload_${DateTime.now().millisecondsSinceEpoch}.mp4',
+          formData.filename ?? 'upload_${const Uuid().v4()}.mp4',
         );
         final extensao = p.extension(originalName).toLowerCase();
         if (!_extensoesPermitidas.contains(extensao)) {
@@ -62,14 +65,13 @@ class fileControll {
           await pastaUpload.create();
         }
 
-        final nomeArquivo =
-            '${DateTime.now().millisecondsSinceEpoch}$originalName';
+        final nomeArquivo = '${const Uuid().v4()}$extensao';
 
         final caminhoFinal = File(p.join(pastaUpload.path, nomeArquivo));
 
         final sink = caminhoFinal.openWrite();
         try {
-          await formData.part.pipe(
+          await _limitUploadSize(formData.part, _maxUploadBytes).pipe(
             // Grava em streaming: não carrega o vídeo inteiro na memória
             sink, //escreve o fluxo de bytes diretamente no disco
           );
@@ -77,21 +79,23 @@ class fileControll {
           await sink.close();
           if (await caminhoFinal.exists()) {
             await caminhoFinal.delete();
-            rethrow;
           }
+          if (e is _UploadTooLargeException) {
+            return Response(413, body: 'Arquivo excede o limite de 100 MiB');
+          }
+          rethrow;
         }
-          print("Arquivo recebido e salvo em: $caminhoFinal");
-          return Response.ok("Arquivo salvo com sucesso");
-        }
-      }catch (e, st) {
+        print("Arquivo recebido e salvo em: $caminhoFinal");
+        return Response.ok("Arquivo salvo com sucesso");
+      }
+    } catch (e, st) {
       print('Erro ao processar upload: $e\n$st');
       return Response.internalServerError(body: 'Erro ao processar');
     }
-      return Response.badRequest(body: "Nenhum arquivo foi enviado");
-    } 
-  
+    return Response.badRequest(body: "Nenhum arquivo foi enviado");
+  }
 
-//==================================================================
+  //==================================================================
   //Acessa os videos salvos e reproduz por uma requisição GET
   Future<Response> _getVideo(Request request, String nome) async {
     //sanitiza o nome para impedir que acesse o arquivo fora
@@ -103,18 +107,18 @@ class fileControll {
     }
 
     final tamanho = await arquivo.length();
-    final tipo = 
+    final tipo =
         _tiposMime[p.extension(safeName).toLowerCase()] ??
         'application/octet-stream';
     final rangeHeader = request.headers['range'];
 
-    if (rangeHeader == null){
+    if (rangeHeader == null) {
       return Response.ok(
         arquivo.openRead(),
-        headers:{
-          'content-type' : tipo,
-          'content-length' : tamanho.toString(),
-          'accept-ranges' : 'bytes' ,
+        headers: {
+          'content-type': tipo,
+          'content-length': tamanho.toString(),
+          'accept-ranges': 'bytes',
         },
       );
     }
@@ -122,8 +126,8 @@ class fileControll {
     //arquivo com um range definido: formato 'byte=inicio-fim' (fim opcional)
 
     final match = RegExp(r'bytes=(\d*)-(\d*)').firstMatch(rangeHeader);
-    if (match == null || (match.group(1)!.isEmpty && match.group(2)!.isEmpty)){
-      return Response(416,headers: {'content-range' : 'bytes */$tamanho'});
+    if (match == null || (match.group(1)!.isEmpty && match.group(2)!.isEmpty)) {
+      return Response(416, headers: {'content-range': 'bytes */$tamanho'});
     }
 
     int inicio;
@@ -143,42 +147,61 @@ class fileControll {
     if (inicio < 0) inicio = 0;
     if (fim >= tamanho) fim = tamanho - 1;
 
-    if(inicio>= tamanho || fim < inicio){
-      return Response(416, headers: {'content-range' : 'bytes */$tamanho'});
+    if (inicio >= tamanho || fim < inicio) {
+      return Response(416, headers: {'content-range': 'bytes */$tamanho'});
     }
 
     final tamanhoParte = fim - inicio + 1;
 
-    return Response (
+    return Response(
       206, //partial content
       body: arquivo.openRead(inicio, fim + 1),
       headers: {
-        'content-type' : tipo,
-        'content-length' : tamanhoParte.toString(),
-        'content-range' : 'bytes $inicio-$fim/$tamanho',
-        'accept-ranges' : 'bytes',
-        },
+        'content-type': tipo,
+        'content-length': tamanhoParte.toString(),
+        'content-range': 'bytes $inicio-$fim/$tamanho',
+        'accept-ranges': 'bytes',
+      },
     );
   }
 
-//=================================================================
-  Future<Response> _deleteVideo(Request request, String nome) async{
+  //=================================================================
+  Future<Response> _deleteVideo(Request request, String nome) async {
     final safeName = p.basename(nome);
-    final arquivo = File(p.join('uploads',safeName));
+    final arquivo = File(p.join('uploads', safeName));
 
-    if (!await arquivo.exists()){
+    if (!await arquivo.exists()) {
       return Response.notFound('Video não encontrado');
     }
 
     try {
       await arquivo.delete();
-      print ('Arquivo deletado: $safeName');
-      return Response.ok('{"deletado" : "$safeName"}',
-      headers:{'content-type' : 'application/json'});
-    } catch (e, st){
-      print ('Erro ao deletar: $e\n$st');
+      print('Arquivo deletado: $safeName');
+      return Response.ok(
+        '{"deletado" : "$safeName"}',
+        headers: {'content-type': 'application/json'},
+      );
+    } catch (e, st) {
+      print('Erro ao deletar: $e\n$st');
       return Response.internalServerError(body: 'Erro ao deletar video');
+    }
+  }
+//===================================================================
+  Stream<List<int>> _limitUploadSize(
+    Stream<List<int>> stream,
+    int maxBytes,
+  ) async* {
+    var totalBytes = 0;
+    await for (final chunk in stream) {
+      totalBytes += chunk.length;
+      if (totalBytes > maxBytes) {
+        throw const _UploadTooLargeException();
+      }
+      yield chunk;
     }
   }
 }
 
+class _UploadTooLargeException implements Exception {
+  const _UploadTooLargeException();
+}

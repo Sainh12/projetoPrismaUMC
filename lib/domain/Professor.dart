@@ -22,6 +22,7 @@ class Professor extends User {
 
   factory Professor.fromJson(Map<String, dynamic> json) {
     return Professor(
+      id : json ['usuario_id'] as String?,
       nome: json['nome'] as String,
       email: json['email'] as String,
       cpf: json['cpf'] as String,

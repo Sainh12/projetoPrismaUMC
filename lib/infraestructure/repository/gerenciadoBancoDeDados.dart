@@ -87,7 +87,7 @@ class GerenciadorBancoDeDados {
 
   //====================================================================
 
-  Future<User?> getUserByEmail(String email) async {
+  Future<User?> getUserByEmail(String? email) async {
     final Database db = await DatabaseHelperUsers.instance.database;
     final List<Map<String, Object?>> result = await db.rawQuery(
       '''
