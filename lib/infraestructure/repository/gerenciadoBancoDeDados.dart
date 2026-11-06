@@ -29,8 +29,6 @@ class GerenciadorBancoDeDados {
         return 1;
       }); 
   }
-  }
-
   //====================================================================
 
   Future<bool> getUserByEmailAndPassword(String email, String senha) async {
@@ -118,4 +116,4 @@ class GerenciadorBancoDeDados {
         throw StateError('Tipo de usuário inválido no banco.');
     }
   }
-
+}
