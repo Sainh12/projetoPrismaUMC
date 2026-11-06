@@ -30,7 +30,7 @@ class Aluno extends User {
 
 
   
-  factory Aluno.fromMap(Map<String, dynamic> map) =>
+  factory Aluno.fromMap(Map<String, Object?> map) =>
   Aluno(
     id: map['id'] as String,
     nome: map['nome'] as String,
@@ -45,10 +45,10 @@ class Aluno extends User {
   @override
   Map<String, Map<String, dynamic>> toMap()=>{
     'Usuarios' : {
-    'id' : id,
-    'nome' : nome,
-    'email' : email,
+    'usuario_id' : id,
+    'nome_completo' : nome,
     'cpf' : cpf,
+    'email' : email,
     'senha' : senha,
     'escola' : escola,
     'tipo_usuario' : 'aluno'

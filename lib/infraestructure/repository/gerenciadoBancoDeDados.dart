@@ -11,11 +11,10 @@ class GerenciadorBancoDeDados {
 
   Future<int> insertUser(User user) async {
     final Database db = await DatabaseHelperUsers.instance.database;
-    final bool exist = await getUserByEmail(user.email);
-    if (exist){
-      return 0;
-    }
     return await db.transaction((txn) async {
+      final bool existente = await getUserByEmail(user.email);
+      if (existente) return 0;
+
       try {
         for (final e in user.toMap().entries) {
           await txn.insert(e.key, e.value);
@@ -35,11 +34,13 @@ class GerenciadorBancoDeDados {
   ) async {
     final Database db = await DatabaseHelperUsers.instance.database;
     final user = await db.query(
-      'Usuarios u ',
+      'Usuarios',
+      columns: ['usuario_id'],
       where: 'email LIKE ?',
       whereArgs: [email],
+      limit : 1,
     );
-    return user.isEmpty;
+    return user.isNotEmpty;
   }
 
 //====================================================================
@@ -61,6 +62,12 @@ class GerenciadorBancoDeDados {
 
   Future<int> atualizacaoUsuario(User user) async {
     final Database db = await DatabaseHelperUsers.instance.database;
+    final result = await db.query(
+      'Usuario',
+      where: 'email LIKE ?',
+      whereArgs: [user.email]
+    );
+    if (result.isNotEmpty){
     return await db.transaction((txn) async {
       try {
         for (final e in user.toMap().entries) {
@@ -72,16 +79,19 @@ class GerenciadorBancoDeDados {
         return (0);
       }
       });
+    }
+    print ("valor não encontrado");
+    return 0;
   }
 
 //====================================================================
 
-  Future<int> deletarUser(int id) async {
+  Future<int> deletarUser(User user) async {
     final Database db = await DatabaseHelperUsers.instance.database;
     return db.delete(
       'Usuario',
-      where : 'id = ?',
-      whereArgs : [id]
+      where : 'usuario_id = ?',
+      whereArgs : [user.id]
     );
   }
 

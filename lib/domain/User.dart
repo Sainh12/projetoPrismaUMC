@@ -20,7 +20,7 @@ abstract class User {
     required String senha,
     required String escola,
     String? tipoUsuario,
-  })  : _id = id ?? uuid.v4.toString(),
+  })  : _id = id ?? uuid.v4(),
         _nome = nome,
         _email = email,
         _senha = senha,

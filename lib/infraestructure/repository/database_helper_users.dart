@@ -1,26 +1,27 @@
 import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart';
 
-class DatabaseHelperUsers{
-
+class DatabaseHelperUsers {
   DatabaseHelperUsers._privateConstructor();
 
-  static final DatabaseHelperUsers instance = DatabaseHelperUsers._privateConstructor();
+  static final DatabaseHelperUsers instance =
+      DatabaseHelperUsers._privateConstructor();
 
   static Database? _database;
 
-  Future<Database> get database async => _database ??= await _conexao('usuarios.db');
+  Future<Database> get database async =>
+      _database ??= await _conexao('usuarios.db');
 
   Future<Database> _conexao(String nome) async {
     final path = join(await getDatabasesPath(), nome);
     return openDatabase(
       path,
-      version:1,
+      version: 1,
       onConfigure: (db) async {
         await db.rawQuery('PRAGMA foreign_keys = ON');
       },
-      onCreate: (db,version) async {
-        return db.execute('''
+      onCreate: (db, version) async {
+        await db.execute('''
 -- =========================================================
 -- TABELA DE USUÁRIOS
 -- =========================================================
@@ -31,8 +32,11 @@ CREATE TABLE Usuarios (
     cpf CHAR(11) NOT NULL UNIQUE,
     email VARCHAR(254) NOT NULL UNIQUE,
     senha VARCHAR(255) NOT NULL,
-    tipo_usuario ENUM('professor', 'aluno') NOT NULL
-);
+    escola VARCHAR (255) NOT NULL,
+    tipo_usuario TEXT NOT NULL
+      CHECK (tipo_usuario IN ('professor', 'aluno')
+    )''');
+        await db.execute('''
 -- =========================================================
 -- TABELA DE PROFESSORES
 -- =========================================================
@@ -47,14 +51,15 @@ CREATE TABLE Professores (
         REFERENCES usuarios(usuario_id)
         ON UPDATE CASCADE
         ON DELETE RESTRICT
-);
+);''');
+        await db.execute('''
 -- =========================================================
 -- TABELA DE ALUNOS
 -- =========================================================
 
 CREATE TABLE Aluno (
     id BIGINT UNSIGNED PRIMARY KEY,
-    serie INT NOT NULL,
+    serie VARCHAR(10) NOT NULL,
 
     CONSTRAINT fk_aluno_usuario
         FOREIGN KEY (id)
@@ -63,7 +68,7 @@ CREATE TABLE Aluno (
         ON DELETE RESTRICT
 );
 ''');
-      }
+      },
     );
   }
 }
