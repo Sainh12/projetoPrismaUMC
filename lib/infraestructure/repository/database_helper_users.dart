@@ -27,22 +27,24 @@ class DatabaseHelperUsers {
 -- =========================================================
 
 CREATE TABLE Usuarios (
-    usuario_id BIGINT UNSIGNED PRIMARY KEY,
+    usuario_id TEXT PRIMARY KEY,
     nome_completo VARCHAR(150) NOT NULL,
     cpf CHAR(11) NOT NULL UNIQUE,
     email VARCHAR(254) NOT NULL UNIQUE,
     senha VARCHAR(255) NOT NULL,
     escola VARCHAR (255) NOT NULL,
     tipo_usuario TEXT NOT NULL
-      CHECK (tipo_usuario IN ('professor', 'aluno')
-    )''');
+      CHECK (tipo_usuario IN ('professor', 'aluno'))
+    )'''
+);
+
         await db.execute('''
 -- =========================================================
 -- TABELA DE PROFESSORES
 -- =========================================================
 
 CREATE TABLE Professores (
-    id BIGINT UNSIGNED PRIMARY KEY,
+    id TEXT PRIMARY KEY,
     licenciatura VARCHAR(150) NOT NULL,
     materia VARCHAR (150) NOT NULL,
 
@@ -50,24 +52,27 @@ CREATE TABLE Professores (
         FOREIGN KEY (id)
         REFERENCES usuarios(usuario_id)
         ON UPDATE CASCADE
-        ON DELETE RESTRICT
-);''');
+        ON DELETE CASCADE
+);'''
+);
+
         await db.execute('''
 -- =========================================================
 -- TABELA DE ALUNOS
 -- =========================================================
 
 CREATE TABLE Aluno (
-    id BIGINT UNSIGNED PRIMARY KEY,
+    id TEXT PRIMARY KEY,
     serie VARCHAR(10) NOT NULL,
 
     CONSTRAINT fk_aluno_usuario
         FOREIGN KEY (id)
         REFERENCES usuarios(usuario_id)
         ON UPDATE CASCADE
-        ON DELETE RESTRICT
+        ON DELETE CASCADE
 );
-''');
+'''
+);
       },
     );
   }

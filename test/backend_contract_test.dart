@@ -33,10 +33,11 @@ void main() {
       final aluno = Aluno.fromJson({
         'nome': 'Aluno Teste',
         'email': 'aluno@example.test',
+        'cpf': '12345678901',
         'senha': 'senha-de-teste',
         'escola': 'Escola Teste',
+        'tipo_usuario': 'aluno',
         'serie': '3º ano',
-        'turma': 'A',
       });
 
       expect(aluno.id, isNotEmpty);
@@ -45,16 +46,18 @@ void main() {
       expect(aluno.senha, 'senha-de-teste');
       expect(aluno.escola, 'Escola Teste');
       expect(aluno.serie, '3º ano');
-      expect(aluno.turma, 'A');
     });
 
     test('Professor.fromJson cria professor com os campos recebidos', () {
       final professor = Professor.fromJson({
         'nome': 'Professor Teste',
         'email': 'professor@example.test',
+        'cpf': '10987654321',
         'senha': 'senha-de-teste',
         'escola': 'Escola Teste',
+        'tipo_usuario': 'professor',
         'materia': 'Matemática',
+        'licenciatura': 'Matemática',
       });
 
       expect(professor.id, isNotEmpty);
@@ -113,10 +116,10 @@ void main() {
         'POST',
         '/api/users/professor',
         body: jsonEncode({
-          'name': 'Professor Teste',
+          'nome': 'Professor Teste',
           'email': 'professor@example.test',
-          'password': 'senha-de-teste',
-          'school': 'Escola Teste',
+          'senha': 'senha-de-teste',
+          'escola': 'Escola Teste',
           'materia': 'Matemática',
         }),
         headers: {'content-type': 'application/json'},
@@ -134,10 +137,10 @@ void main() {
         'POST',
         '/api/users/aluno',
         body: jsonEncode({
-          'name': 'Aluno Teste',
+          'nome': 'Aluno Teste',
           'email': 'aluno@example.test',
-          'password': 'senha-de-teste',
-          'school': 'Escola Teste',
+          'senha': 'senha-de-teste',
+          'escola': 'Escola Teste',
           'serie': '3º ano',
           'turma': 'A',
         }),

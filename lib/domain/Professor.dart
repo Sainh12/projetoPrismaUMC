@@ -11,7 +11,7 @@ class Professor extends User {
     required super.cpf,
     required super.senha,
     required super.escola,
-    super.tipoUsuario,
+    required super.tipoUsuario,
     required String materia,
     required String licenciatura
   }) : _materia = materia,
@@ -39,7 +39,7 @@ class Professor extends User {
 
   @override
   Map<String, Map<String, dynamic>> toMap() => {
-    'Usuario': {
+    'Usuarios': {
       'usuario_id': id,
       'nome_completo': nome,
       'cpf': cpf,
@@ -55,8 +55,8 @@ class Professor extends User {
   };
 
   factory Professor.fromMap(Map<String, Object?> map) => Professor(
-    id: map['id'] as String,
-    nome: map['nome'] as String,
+    id: map['usuario_id'] as String,
+    nome: map['nome_completo'] as String,
     email: map['email'] as String,
     cpf: map['cpf'] as String,
     senha: map['senha'] as String,
