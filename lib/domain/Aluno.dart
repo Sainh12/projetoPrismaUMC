@@ -24,6 +24,7 @@ class Aluno extends User {
       cpf: json ['cpf'] as String,
       escola : json ['escola'] as String,
       serie : json ['serie'] as String,
+      tipoUsuario: json ['tipo_usuario'] as String,
     );
   }
 
@@ -53,6 +54,7 @@ class Aluno extends User {
     'tipo_usuario' : 'aluno'
     },
     'Aluno' : {
+      'id' : id,
       'serie' : serie
     },
   };

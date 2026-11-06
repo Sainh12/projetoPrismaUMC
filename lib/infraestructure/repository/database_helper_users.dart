@@ -48,6 +48,9 @@ CREATE TABLE Professores (
         ON UPDATE CASCADE
         ON DELETE RESTRICT
 );
+-- =========================================================
+-- TABELA DE ALUNOS
+-- =========================================================
 
 CREATE TABLE Aluno (
     id BIGINT UNSIGNED PRIMARY KEY,

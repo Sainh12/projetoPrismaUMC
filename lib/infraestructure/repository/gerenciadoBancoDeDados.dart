@@ -7,16 +7,14 @@ import '/domain/Professor.dart';
 import '/domain/Aluno.dart';
 
 class GerenciadorBancoDeDados {
+//====================================================================
+
   Future<int> insertUser(User user) async {
     final Database db = await DatabaseHelperUsers.instance.database;
-    List<User> lista = await getUserByEmailAndPassword(
-      user.email,
-      user.senha,
-    );
-    if (lista.isNotEmpty) {
-      return (0);
+    final bool exist = await getUserByEmail(user.email);
+    if (exist){
+      return 0;
     }
-
     return await db.transaction((txn) async {
       try {
         for (final e in user.toMap().entries) {
@@ -30,33 +28,36 @@ class GerenciadorBancoDeDados {
     });
   }
 
-  Future<List<User>> getUserByEmailAndPassword(
+//====================================================================
+
+  Future<bool> getUserByEmail(
+    String email
+  ) async {
+    final Database db = await DatabaseHelperUsers.instance.database;
+    final user = await db.query(
+      'Usuarios u ',
+      where: 'email LIKE ?',
+      whereArgs: [email],
+    );
+    return user.isEmpty;
+  }
+
+//====================================================================
+
+  Future<bool> getUserByEmailAndPassword(
     String email,
     String senha,
   ) async {
     final Database db = await DatabaseHelperUsers.instance.database;
     final user = await db.query(
-      '''
-      Usuarios u 
-      LEFT JOIN Professores p ON p.id = u.usuario_id
-      LEFT JOIN Alunos a ON a.id = u.usuario_id
-      ''',
-      columns: [
-      'u*', 
-      'p.licenciatura', 'p.materia', 
-      'a.serie'],
+      'Usuarios u' ,
       where: 'email LIKE ? AND senha LIKE ?',
       whereArgs: ['%$email%', '%$senha%'],
     );
-    if (user.isEmpty) return [];
-
-    final verificacao = user[0]['tipo_usuario'] as String;
-
-    if (verificacao == 'professor'){
-      return user.map(Professor.fromMap).toList();
-    }
-    return user.map(Aluno.fromMap).toList();
+    return !user.isEmpty;
   }
+
+//====================================================================
 
   Future<int> atualizacaoUsuario(User user) async {
     final Database db = await DatabaseHelperUsers.instance.database;
@@ -73,6 +74,7 @@ class GerenciadorBancoDeDados {
       });
   }
 
+//====================================================================
 
   Future<int> deletarUser(int id) async {
     final Database db = await DatabaseHelperUsers.instance.database;
@@ -81,6 +83,36 @@ class GerenciadorBancoDeDados {
       where : 'id = ?',
       whereArgs : [id]
     );
+  }
+
+//====================================================================
+
+  Future<User?> getUser(User user) async{
+  
+  final Database db = await DatabaseHelperUsers.instance.database;
+  final List<Map<String,Object?>> result = await db.query (
+    '''
+    Usuarios u
+    LEFT JOIN professores p ON p.id = u.usuario_id
+    LEFT JOIN Aluno a ON a.id = u.usuario_id
+    ''',
+    columns: [
+      'u.*',
+      'p.licenciatura',
+      'p.materia',
+      'a.serie'
+      ],
+    where: 'u.email LIKE ?',
+    whereArgs: [user.email]
+  );
+  if (result.isEmpty) return null;
+
+  final verificacao = result[0]['tipo_usuario'] as String;
+
+    if (verificacao == 'professor'){
+      return Professor.fromMap(result[0]);
+    }
+    return Aluno.fromMap(result[0]);
   }
 }
 

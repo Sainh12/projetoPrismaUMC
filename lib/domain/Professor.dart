@@ -23,6 +23,7 @@ class Professor extends User {
       senha : json ['senha'] as String,
       escola : json ['escola'] as String,
       materia : json ['materia'] as String,
+      tipoUsuario: json ['tipo_usuario'] as String,
     );
   }
 
@@ -40,6 +41,7 @@ class Professor extends User {
     'tipo_usuario' : 'professor',
     },
     'Professores': {
+      'id' : id,
       'licenciatura' : materia
     },
   };
