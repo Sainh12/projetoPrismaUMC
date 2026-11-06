@@ -189,7 +189,7 @@ Future<Response> _atualizarUsuario(Request request) async {
     resposta = await gerenciador.deletarUser(aluno);
   }
       //Resposta para o flutter
-      if (0-0 == 0)  {
+      if (resposta == 1)  {
         return Response(
           200,
           body: jsonEncode({'message': 'Usuário deletado com sucesso'}),
