@@ -16,12 +16,7 @@ class loginApi {
   final router = Router();
   final GerenciadorBancoDeDados gerenciador = GerenciadorBancoDeDados();
 
-  Future<HttpServer> startApi({
-    
-    required Handler handler,
-    InternetAddress? address,
-    int port = 8080,
-  }){
+  Handler _buildHandler(){
     router.get("/api/test", _getTest);
     router.get("/api/users/info", _getUser);
     router.post("/api/users/cadastrar", _postLogin);
@@ -30,21 +25,28 @@ class loginApi {
     router.delete("/api/users/<id>", _deletarUsuario);
     //router.post("/api/users/professor", _postProfessor);
     //router.post("/api/users/aluno", _postAluno);
-    return shelf_io.serve(handler, address ?? InternetAddress.loopbackIPv4, port);
+
+    return const Pipeline()
+      .addMiddleware(logRequests())
+      .addHandler(router.call);
+  }
+
+  Future<HttpServer> _startApi({
+    InternetAddress? address,
+    int port = 8080,
+  }){
+    return shelf_io.serve
+    (_buildHandler(), address ?? InternetAddress.anyIPv4, port);
   }
 
 
-  Future<void> main() async {
-    final handler = Pipeline()
-        .addMiddleware(logRequests())
-        .addHandler(router.call);
-    final server = await startApi(handler: handler);
-    
-    print('API rodando em http://${server.address.host}:${server.port}');
+  Future<List<String>> iniciando() async {
+    final server = await _startApi();
+    final String serverAddress = server.address.host;
+    final String serverPort = server.port.toString();
+    return [serverAddress,serverPort];
   }
     
-
-
   //====================================================================
   Future<Response> _getUser(Request request) async {
       
@@ -86,6 +88,7 @@ class loginApi {
       //Lê o corpo da requisição
       final body = await request.readAsString();
       final Object? data;
+
       //Converter o JSON recebido em um mapa Dart
       try { data = jsonDecode(body);} on FormatException {
         return Response(400, body: '{"message":"JSON inválido"}');
@@ -102,15 +105,19 @@ class loginApi {
         case 'professor':{
         final professor = Professor.fromJson(data);
         resposta = await gerenciador.insertUser(professor);
-        
+
       } 
-        case 'aluno':{ 
+
+        case 'aluno':{
+
         final aluno = Aluno.fromJson(data);
         resposta = await gerenciador.insertUser(aluno);
         }
+
         default:
+
         return Response(
-        409,
+        400,
         body: jsonEncode({'message': 'usuario tipo_usuario invalido'}),
         headers: {'content-type': 'application/json; charset=utf-8'},
       );
@@ -135,7 +142,15 @@ class loginApi {
   Future<Response> _enterSystem(Request request) async {
     //Formatando informações para trabalhar com elas
     final body = await request.readAsString();
-    final data = jsonDecode(body) as Map<String, dynamic>;
+    final Object? data;
+      
+      //Converter o JSON recebido em um mapa Dart
+      try { data = jsonDecode(body);} on FormatException {
+        return Response(400, body: '{"message":"JSON inválido"}');
+      }
+      if (data is! Map<String,dynamic>){
+        return Response(400, body: '{"message":"Objeto JSON esperado"}');
+      }
 
     //Acesso ao Banco de dados
     final bool resposta = await gerenciador.getUserByEmailAndPassword(
@@ -155,10 +170,19 @@ class loginApi {
       headers: {'content-type': 'application/json; charset=utf-8'},
     );
   }
+  //========================================================================
   
   Future<Response> _atualizarUsuario(Request request) async {
   final body = await request.readAsString();
-  final data = jsonDecode(body) as Map<String, dynamic>;
+  final Object? data;
+      
+      //Converter o JSON recebido em um mapa Dart
+      try { data = jsonDecode(body);} on FormatException {
+        return Response(400, body: '{"message":"JSON inválido"}');
+      }
+      if (data is! Map<String,dynamic>){
+        return Response(400, body: '{"message":"Objeto JSON esperado"}');
+      }
   int resposta = 0;
   
   if (data['tipo_usuario'] == 'professor'){
@@ -187,7 +211,15 @@ class loginApi {
 
   Future<Response> _deletarUsuario(Request request) async {
     final body = await request.readAsString();
-    final data = jsonDecode(body) as Map<String,dynamic>;
+    final Object? data;
+      
+      //Converter o JSON recebido em um mapa Dart
+      try { data = jsonDecode(body);} on FormatException {
+        return Response(400, body: '{"message":"JSON inválido"}');
+      }
+      if (data is! Map<String,dynamic>){
+        return Response(400, body: '{"message":"Objeto JSON esperado"}');
+      }
     int resposta = 0;
     
     if (data['tipo_usuario'] == 'professor'){

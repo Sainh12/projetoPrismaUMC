@@ -16,8 +16,8 @@ class GerenciadorBancoDeDados {
       final existing = await txn.query(
         'Usuarios',
         columns: ['usuario_id'],
-        where: 'email=?',
-        whereArgs: [user.email],
+        where: 'email=? OR cpf=?',
+        whereArgs: [user.email, user.cpf],
         limit: 1,
       );
 

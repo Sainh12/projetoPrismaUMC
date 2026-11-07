@@ -2,24 +2,6 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 
-void main() {
-  runApp (const TelaTeste());
-}
-
-class User {
-  final int id;
-  final String name;
-
-  const User({required this.id, required this.name});
-
-  factory User.fromJson(Map<String, dynamic> json) {
-    return User(
-      id: json['id'] as int,
-      name: json['name'] as String,
-    );
-  }
-}
-
 class TelaTeste extends StatelessWidget{
   const TelaTeste({super.key});
 
@@ -143,6 +125,19 @@ class _UsersPageState extends State<UsersPage>{
           );
         },
       ),
+    );
+  }
+}
+class User {
+  final int id;
+  final String name;
+
+  const User({required this.id, required this.name});
+
+  factory User.fromJson(Map<String, dynamic> json) {
+    return User(
+      id: json['id'] as int,
+      name: json['name'] as String,
     );
   }
 }
