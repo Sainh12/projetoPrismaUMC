@@ -1,2 +1,33 @@
-A sample command-line application with an entrypoint in `bin/`, library code
-in `lib/`, and example unit test in `test/`.
+# Projeto Prisma
+
+Aplicativo Flutter com APIs Shelf locais para usuários e arquivos.
+
+## Executar
+
+Na raiz deste pacote, execute:
+
+```shell
+flutter pub get
+flutter run
+```
+
+O entrypoint `lib/main.dart` inicia a API de usuários na porta `8080`, a API de arquivos na porta `8081` e a tela Flutter de teste. A API usa SQLite por `sqflite`; execute-a como aplicativo Flutter, não como servidor Dart CLI independente.
+
+## Testes e análise
+
+```shell
+flutter test
+flutter analyze
+```
+
+## APIs
+
+- Cadastro: `POST /api/users/cadastrar`
+- Login: `POST /api/users/acesso`
+- Logout: `POST /api/users/logout`
+- Consulta, atualização e exclusão de usuário: `/api/users/...` (exigem `Authorization: Bearer <access_token>`)
+- Upload: `POST /api/upload` com `multipart/form-data` e token Bearer
+- Leitura em streaming: `GET /api/video/<nome>` com token Bearer e suporte a `Range`
+- Exclusão de arquivo: `DELETE /api/video/<nome>` com token Bearer
+
+Os detalhes de payloads, validação, limites, armazenamento e pendências para implantação estão em [test/analise_apis_e_persistencia.md](test/analise_apis_e_persistencia.md).

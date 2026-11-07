@@ -12,7 +12,7 @@ class DatabaseHelperArquivos {
   Future<Database> get database async => _database ??= await _conexao();
 
   Future<Database> _conexao() async {
-    final path = join(await getDatabasesPath(), '/var/lib/mysql');
+    final path = join(await getDatabasesPath(), 'arquivos.db');
     return openDatabase(
       path,
       version: 1,
