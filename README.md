@@ -20,6 +20,14 @@ flutter test
 flutter analyze
 ```
 
+## API de questões
+
+A API de questões usa o mesmo servidor e autenticação da API de usuários (porta `8080`). Todas as rotas exigem o token Bearer recebido no login:
+
+- `POST /api/quiz/perguntas` — apenas professores; JSON: `{"enunciado":"...","resposta_correta":"..."}`
+- `GET /api/quiz/perguntas` e `GET /api/quiz/perguntas/<id>` — alunos recebem apenas o enunciado; professores também recebem a resposta correta.
+- `POST /api/quiz/perguntas/<id>/responder` — apenas alunos; JSON: `{"resposta":"..."}`. Retorna `{"correta":true}` ou `{"correta":false}`.
+
 ## APIs
 
 - Cadastro: `POST /api/users/cadastrar`
