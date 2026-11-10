@@ -2,7 +2,6 @@ import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
-import 'package:projeto_base_prisma/application/view/TelaDeCarregamento.dart';
 
 class TelaTeste extends StatelessWidget {
   const TelaTeste({super.key});
@@ -16,7 +15,7 @@ class TelaTeste extends StatelessWidget {
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.blue),
         useMaterial3: true,
       ),
-      home: TelaDeCarregamento(nextPageBuilder: (_) => const LoginPage()),
+      home: const LoginPage(),
     );
   }
 }
