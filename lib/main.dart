@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:projeto_base_prisma/application/view/TelasTeste.dart';
 import 'package:projeto_base_prisma/infraestructure/controller/http/file_controller_api.dart';
 import 'package:projeto_base_prisma/infraestructure/controller/http/login_api.dart';
+import 'package:projeto_base_prisma/infraestructure/repository/gerenciadoBancoDeDados.dart';
 import 'package:projeto_base_prisma/infraestructure/controller/http/quiz_api.dart';
 import 'package:projeto_base_prisma/infraestructure/security/session_store.dart';
 
@@ -14,6 +15,7 @@ Future<void> main() async {
   final sessions = SessionStore();
   final fileApi = FileController(sessions: sessions);
   final loginApi = LoginApi(
+    repository: GerenciadorBancoDeDados(),
     sessions: sessions,
     onUserDeleted: fileApi.deleteUserFiles,
   );

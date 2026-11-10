@@ -115,7 +115,7 @@ class GerenciadorBancoDeDados implements UserRepository {
         u.escola,
         u.tipo_usuario,
         p.materia,
-        p.licenciatura,
+        p.cndb,
         a.serie
       FROM Usuarios u
       LEFT JOIN Professores p ON p.id = u.usuario_id

@@ -13,6 +13,24 @@ flutter run
 
 O entrypoint `lib/main.dart` inicia a API de usuários na porta `8080`, a API de arquivos na porta `8081` e a tela Flutter de teste. A API usa SQLite por `sqflite`; execute-a como aplicativo Flutter, não como servidor Dart CLI independente.
 
+### Testar a tela Web com as APIs
+
+Para desenvolvimento no Chrome, abra dois terminais na raiz do projeto. O servidor abaixo usa armazenamento em memória e uma conta demonstrativa; os dados são apagados ao encerrá-lo.
+
+Terminal 1, iniciar as APIs locais com CORS de desenvolvimento:
+
+```shell
+dart run bin/dev_api.dart
+```
+
+Terminal 2, iniciar a tela no Chrome:
+
+```shell
+flutter run -d chrome -t lib/main_web.dart --web-port 5000
+```
+
+Acesse `http://localhost:5000` e entre com `aluno@prisma.test` / `Prisma123!`. As APIs ficam em `http://localhost:8080` e `http://localhost:8081`. Esse servidor de demonstração usa armazenamento em memória; para testar o banco SQLite real, execute o entrypoint nativo `lib/main.dart`.
+
 ## Testes e análise
 
 ```shell
