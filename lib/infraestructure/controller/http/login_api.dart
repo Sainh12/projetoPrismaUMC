@@ -97,10 +97,10 @@ class LoginApi {
     late final User user;
     if (type == 'aluno') {
       final serie = _requiredString(data, 'serie');
-      if (serie == null || serie.length > 10) {
+      if (serie == null) {
         throw const _RequestException(
           400,
-          'serie é obrigatória e deve ter até 10 caracteres',
+          'serie é obrigatória',
         );
       }
       user = Aluno.fromJson(null, {
@@ -252,7 +252,7 @@ class LoginApi {
     late final User user;
     if (type == 'aluno') {
       final serie = _requiredString(data, 'serie');
-      if (serie == null || serie.length > 10) {
+      if (serie == null) {
         throw const _RequestException(400, 'serie inválida');
       }
       user = Aluno.fromJson(id, {

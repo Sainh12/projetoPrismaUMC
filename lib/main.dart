@@ -5,6 +5,7 @@ import 'package:projeto_base_prisma/application/view/TelasTeste.dart';
 import 'package:projeto_base_prisma/infraestructure/controller/http/file_controller_api.dart';
 import 'package:projeto_base_prisma/infraestructure/controller/http/login_api.dart';
 import 'package:projeto_base_prisma/infraestructure/repository/gerenciadoBancoDeDados.dart';
+import 'package:projeto_base_prisma/infraestructure/controller/http/quiz_api.dart';
 import 'package:projeto_base_prisma/infraestructure/security/session_store.dart';
 
 final List<HttpServer> _servers = [];
@@ -18,6 +19,8 @@ Future<void> main() async {
     sessions: sessions,
     onUserDeleted: fileApi.deleteUserFiles,
   );
+  final quizApi = QuizApi(sessions: sessions);
+  loginApi.router.mount('/api/quiz/', quizApi.handler);
   final loginServer = await loginApi.start();
 
   try {
