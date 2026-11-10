@@ -10,10 +10,12 @@ class Professor extends User {
     required super.tipoUsuario,
     required this.materia,
     required this.licenciatura,
+    this.cndb = '',
   });
 
   final String materia;
   final String licenciatura;
+  final String cndb;
 
   factory Professor.fromJson(String? idJson, Map<String, dynamic> json) {
     return Professor(
@@ -25,6 +27,7 @@ class Professor extends User {
       materia: json['materia'] as String,
       tipoUsuario: json['tipo_usuario'] as String,
       licenciatura: json['licenciatura'] as String,
+      cndb: json['cndb'] as String? ?? '',
     );
   }
 
@@ -37,6 +40,7 @@ class Professor extends User {
     materia: map['materia'] as String,
     tipoUsuario: map['tipo_usuario'] as String,
     licenciatura: map['licenciatura'] as String,
+    cndb: map['cndb'] as String? ?? '',
   );
 
   @override
@@ -49,6 +53,11 @@ class Professor extends User {
       'escola': escola,
       'tipo_usuario': 'professor',
     },
-    'Professores': {'id': id, 'licenciatura': licenciatura, 'materia': materia},
+    'Professores': {
+      'id': id,
+      'cndb': cndb,
+      'licenciatura': licenciatura,
+      'materia': materia,
+    },
   };
 }

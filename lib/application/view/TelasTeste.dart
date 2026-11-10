@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+import 'package:projeto_base_prisma/application/view/CadastroAluno.dart';
 
 class TelaTeste extends StatelessWidget {
   const TelaTeste({super.key});
@@ -111,10 +112,10 @@ class _LoginPageState extends State<LoginPage> {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
-                  const Icon(
-                    Icons.school_rounded,
-                    color: Colors.white,
-                    size: 78,
+                  Image.asset(
+                    'lib/application/icons/prisma_logo.png',
+                    height: 118,
+                    fit: BoxFit.contain,
                   ),
                   const SizedBox(height: 10),
                   const Text(
@@ -203,14 +204,24 @@ class _LoginPageState extends State<LoginPage> {
                                 style: TextStyle(fontSize: 14),
                               ),
                               TextButton(
-                                onPressed: () {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(
-                                      content: Text(
-                                        'A tela de cadastro ainda não foi integrada.',
-                                      ),
+                                onPressed: () async {
+                                  final registered = await Navigator.of(
+                                    context,
+                                  ).push<bool>(
+                                    MaterialPageRoute<bool>(
+                                      builder: (_) =>
+                                          const CadastroAlunoPage(),
                                     ),
                                   );
+                                  if (registered == true && mounted) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      const SnackBar(
+                                        content: Text(
+                                          'Conta criada. Você já pode entrar.',
+                                        ),
+                                      ),
+                                    );
+                                  }
                                 },
                                 style: TextButton.styleFrom(
                                   padding: EdgeInsets.zero,
