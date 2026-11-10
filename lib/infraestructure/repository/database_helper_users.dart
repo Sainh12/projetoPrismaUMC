@@ -45,7 +45,7 @@ CREATE TABLE Usuarios (
 
 CREATE TABLE Professores (
     id TEXT PRIMARY KEY,
-    licenciatura VARCHAR(150) NOT NULL,
+    cndb VARCHAR(150) NOT NULL,
     materia VARCHAR (150) NOT NULL,
 
     CONSTRAINT fk_professores_usuario
