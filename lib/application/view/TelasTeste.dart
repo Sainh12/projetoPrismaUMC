@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:projeto_base_prisma/application/view/CadastroAluno.dart';
+import 'package:projeto_base_prisma/application/view/HomeFeed.dart';
 
 class TelaTeste extends StatelessWidget {
   const TelaTeste({super.key});
@@ -72,10 +73,26 @@ class _LoginPageState extends State<LoginPage> {
       if (token is! String || token.isEmpty) {
         throw Exception('A API não retornou um token de acesso.');
       }
+      final profile = data['profile'];
+      if (profile is! Map<String, dynamic>) {
+        throw Exception('A API não retornou os dados do perfil.');
+      }
       if (!mounted) return;
 
-      await Navigator.of(context).pushReplacement(
-        MaterialPageRoute<void>(builder: (_) => UsersPage(accessToken: token)),
+      final navigator = Navigator.of(context);
+      await navigator.pushReplacement(
+        MaterialPageRoute<void>(
+          builder: (_) => HomeFeedPage(
+            accessToken: token,
+            profile: profile,
+            onLoggedOut: () {
+              navigator.pushAndRemoveUntil(
+                MaterialPageRoute<void>(builder: (_) => const LoginPage()),
+                (_) => false,
+              );
+            },
+          ),
+        ),
       );
     } catch (error) {
       if (!mounted) return;
@@ -205,14 +222,13 @@ class _LoginPageState extends State<LoginPage> {
                               ),
                               TextButton(
                                 onPressed: () async {
-                                  final registered = await Navigator.of(
-                                    context,
-                                  ).push<bool>(
-                                    MaterialPageRoute<bool>(
-                                      builder: (_) =>
-                                          const CadastroAlunoPage(),
-                                    ),
-                                  );
+                                  final registered = await Navigator.of(context)
+                                      .push<bool>(
+                                        MaterialPageRoute<bool>(
+                                          builder: (_) =>
+                                              const CadastroAlunoPage(),
+                                        ),
+                                      );
                                   if (registered == true && mounted) {
                                     ScaffoldMessenger.of(context).showSnackBar(
                                       const SnackBar(

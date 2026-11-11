@@ -111,6 +111,15 @@ void main() {
       final loginData = jsonDecode(await login.readAsString());
       expect(loginData['access_token'], isNotEmpty);
       expect(loginData['token_type'], 'Bearer');
+      expect(loginData['profile'], {
+        'id': user.id,
+        'nome': user.nome,
+        'email': user.email,
+        'cpf': user.cpf,
+        'escola': user.escola,
+        'tipo_usuario': 'aluno',
+        'serie': '3 ano',
+      });
     });
 
     test('rejects invalid registration data and duplicate accounts', () async {

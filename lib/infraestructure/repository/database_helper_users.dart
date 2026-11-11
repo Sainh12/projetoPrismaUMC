@@ -16,9 +16,16 @@ class DatabaseHelperUsers {
     final path = join(await getDatabasesPath(), nome);
     return openDatabase(
       path,
-      version: 1,
+      version: 2,
       onConfigure: (db) async {
         await db.rawQuery('PRAGMA foreign_keys = ON');
+      },
+      onUpgrade: (db, oldVersion, newVersion) async {
+        if (oldVersion < 2) {
+          await db.execute(
+            "ALTER TABLE Professores ADD COLUMN cndb TEXT NOT NULL DEFAULT ''",
+          );
+        }
       },
       onCreate: (db, version) async {
         await db.execute('''
@@ -35,8 +42,7 @@ CREATE TABLE Usuarios (
     escola VARCHAR (255) NOT NULL,
     tipo_usuario TEXT NOT NULL
       CHECK (tipo_usuario IN ('professor', 'aluno'))
-    )'''
-);
+    )''');
 
         await db.execute('''
 -- =========================================================
@@ -47,14 +53,14 @@ CREATE TABLE Professores (
     id TEXT PRIMARY KEY,
     licenciatura VARCHAR(150) NOT NULL,
     materia VARCHAR (150) NOT NULL,
+    cndb TEXT NOT NULL DEFAULT '',
 
     CONSTRAINT fk_professores_usuario
         FOREIGN KEY (id)
         REFERENCES usuarios(usuario_id)
         ON UPDATE CASCADE
         ON DELETE CASCADE
-);'''
-);
+);''');
 
         await db.execute('''
 -- =========================================================
@@ -71,8 +77,7 @@ CREATE TABLE Aluno (
         ON UPDATE CASCADE
         ON DELETE CASCADE
 );
-'''
-);
+''');
       },
     );
   }

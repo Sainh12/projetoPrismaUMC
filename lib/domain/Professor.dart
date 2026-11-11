@@ -55,7 +55,7 @@ class Professor extends User {
     },
     'Professores': {
       'id': id,
-      'cndb': cndb,
+      if (cndb.isNotEmpty) 'cndb': cndb,
       'licenciatura': licenciatura,
       'materia': materia,
     },

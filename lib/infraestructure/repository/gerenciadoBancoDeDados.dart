@@ -3,28 +3,34 @@ import 'package:projeto_base_prisma/domain/Professor.dart';
 import 'package:projeto_base_prisma/domain/User.dart';
 import 'package:projeto_base_prisma/infraestructure/repository/database_helper_users.dart';
 import 'package:projeto_base_prisma/infraestructure/repository/user_repository.dart';
+import 'package:sqflite/sqflite.dart';
 
 class GerenciadorBancoDeDados implements UserRepository {
   @override
   Future<int> insertUser(User user, {required String passwordHash}) async {
     final db = await DatabaseHelperUsers.instance.database;
-    return db.transaction((txn) async {
-      final existing = await txn.query(
-        'Usuarios',
-        columns: ['usuario_id'],
-        where: 'email = ? OR cpf = ?',
-        whereArgs: [user.email, user.cpf],
-        limit: 1,
-      );
-      if (existing.isNotEmpty) return 0;
+    try {
+      return await db.transaction((txn) async {
+        final existing = await txn.query(
+          'Usuarios',
+          columns: ['usuario_id'],
+          where: 'email = ? OR cpf = ?',
+          whereArgs: [user.email, user.cpf],
+          limit: 1,
+        );
+        if (existing.isNotEmpty) return 0;
 
-      for (final entry in user.toMap().entries) {
-        final values = Map<String, Object?>.from(entry.value);
-        if (entry.key == 'Usuarios') values['senha'] = passwordHash;
-        await txn.insert(entry.key, values);
-      }
-      return 1;
-    });
+        for (final entry in user.toMap().entries) {
+          final values = Map<String, Object?>.from(entry.value);
+          if (entry.key == 'Usuarios') values['senha'] = passwordHash;
+          await txn.insert(entry.key, values);
+        }
+        return 1;
+      });
+    } on DatabaseException catch (error) {
+      if (error.isUniqueConstraintError()) return 0;
+      rethrow;
+    }
   }
 
   @override
@@ -115,6 +121,7 @@ class GerenciadorBancoDeDados implements UserRepository {
         u.escola,
         u.tipo_usuario,
         p.materia,
+        p.licenciatura,
         p.cndb,
         a.serie
       FROM Usuarios u
