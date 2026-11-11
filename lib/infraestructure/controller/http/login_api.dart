@@ -108,11 +108,11 @@ class LoginApi {
       });
     } else {
       final materia = _requiredString(data, 'materia');
-      final licenciatura = _requiredString(data, 'licenciatura');
-      if (materia == null || licenciatura == null) {
+      final cndb = _requiredString(data, 'cndb');
+      if (materia == null || cndb == null) {
         throw const _RequestException(
           400,
-          'materia e licenciatura são obrigatórias para professor',
+          'materia e cndb são obrigatórios para professor',
         );
       }
       user = Professor.fromJson(null, {
@@ -123,7 +123,7 @@ class LoginApi {
         'cpf': cpf,
         'escola': school,
         'materia': materia,
-        'licenciatura': licenciatura,
+        'cndb': cndb,
       });
     }
 
@@ -261,8 +261,8 @@ class LoginApi {
       });
     } else if (type == 'professor') {
       final materia = _requiredString(data, 'materia');
-      final licenciatura = _requiredString(data, 'licenciatura');
-      if (materia == null || licenciatura == null) {
+      final cndb = _requiredString(data, 'cndb');
+      if (materia == null || cndb == null) {
         throw const _RequestException(400, 'Dados do professor inválidos');
       }
       user = Professor.fromJson(id, {
@@ -273,7 +273,7 @@ class LoginApi {
         'cpf': cpf,
         'escola': school,
         'materia': materia,
-        'licenciatura': licenciatura,
+        'cndb': cndb,
       });
     } else {
       throw const _RequestException(400, 'tipo_usuario inválido');
@@ -340,8 +340,8 @@ class LoginApi {
     'tipo_usuario': user.tipoUsuario,
     if (user is Aluno) 'serie': user.serie,
     if (user is Professor) ...{
+      'cndb': user.cndb,
       'materia': user.materia,
-      'licenciatura': user.licenciatura,
     },
   };
 
@@ -356,7 +356,6 @@ class LoginApi {
     if (user is Professor) ...{
       'cndb': user.cndb,
       'materia': user.materia,
-      'licenciatura': user.licenciatura,
     },
   };
 

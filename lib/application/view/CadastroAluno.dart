@@ -20,6 +20,7 @@ class _CadastroAlunoPageState extends State<CadastroAlunoPage> {
   final _emailController = TextEditingController();
   final _schoolController = TextEditingController();
   final _gradeController = TextEditingController();
+  final _subjectController = TextEditingController();
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
 
@@ -35,6 +36,7 @@ class _CadastroAlunoPageState extends State<CadastroAlunoPage> {
     _emailController.dispose();
     _schoolController.dispose();
     _gradeController.dispose();
+    _subjectController.dispose();
     _passwordController.dispose();
     _confirmPasswordController.dispose();
     super.dispose();
@@ -60,8 +62,10 @@ class _CadastroAlunoPageState extends State<CadastroAlunoPage> {
               'escola': _schoolController.text.trim(),
               if (category == 'aluno')
                 'serie': _gradeController.text.trim()
-              else
+              else ...{
                 'cndb': _gradeController.text.trim(),
+                'materia': _subjectController.text.trim(),
+              },
               'senha': _passwordController.text,
             }),
           )
@@ -205,6 +209,18 @@ class _CadastroAlunoPageState extends State<CadastroAlunoPage> {
               : null,
         ),
         const SizedBox(height: 20),
+        if (!isStudent) ...[
+          _buildTextField(
+            label: 'Matéria',
+            hint: 'Insira a matéria que leciona',
+            controller: _subjectController,
+            textInputAction: TextInputAction.next,
+            validator: (value) => value == null || value.trim().isEmpty
+                ? 'Digite a matéria que leciona.'
+                : null,
+          ),
+          const SizedBox(height: 20),
+        ],
         _buildTextField(
           label: 'Crie uma senha',
           hint: 'Insira sua senha',
@@ -350,6 +366,7 @@ class _CadastroAlunoPageState extends State<CadastroAlunoPage> {
                                   ? null
                                   : selection.first;
                               _gradeController.clear();
+                              _subjectController.clear();
                             });
                           },
                           style: SegmentedButton.styleFrom(

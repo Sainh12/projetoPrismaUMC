@@ -29,6 +29,7 @@ class _PerfilPageState extends State<PerfilPage> {
   final _emailController = TextEditingController();
   final _schoolController = TextEditingController();
   final _roleDetailController = TextEditingController();
+  final _subjectController = TextEditingController();
 
   late Map<String, dynamic> _profile;
   bool _isEditing = false;
@@ -60,6 +61,7 @@ class _PerfilPageState extends State<PerfilPage> {
     _emailController.dispose();
     _schoolController.dispose();
     _roleDetailController.dispose();
+    _subjectController.dispose();
     super.dispose();
   }
 
@@ -71,6 +73,7 @@ class _PerfilPageState extends State<PerfilPage> {
     _roleDetailController.text = _isStudent
         ? '${_profile['serie'] ?? ''}'
         : '${_profile['cndb'] ?? ''}';
+    _subjectController.text = '${_profile['materia'] ?? ''}';
   }
 
   void _cancelEditing() {
@@ -123,7 +126,10 @@ class _PerfilPageState extends State<PerfilPage> {
       if (_isStudent)
         'serie': _roleDetailController.text.trim()
       else
-        'cndb': _roleDetailController.text.trim(),
+          ...{
+            'cndb': _roleDetailController.text.trim(),
+            'materia': _subjectController.text.trim(),
+          },
     };
 
     try {
@@ -250,7 +256,7 @@ class _PerfilPageState extends State<PerfilPage> {
                 label,
                 style: const TextStyle(fontSize: 18, color: Colors.black),
               ),
-              if (labelAction != null) labelAction,
+              ?labelAction,
             ],
           ),
           const SizedBox(height: 8),
@@ -378,6 +384,15 @@ class _PerfilPageState extends State<PerfilPage> {
                                       : 'Digite seu código CNDB.'
                                 : null,
                           ),
+                          if (!_isStudent)
+                            _profileField(
+                              label: 'Matéria',
+                              controller: _subjectController,
+                              validator: (value) =>
+                                  value == null || value.trim().isEmpty
+                                  ? 'Digite a matéria que leciona.'
+                                  : null,
+                            ),
                           if (_isEditing) ...[
                             Row(
                               children: [

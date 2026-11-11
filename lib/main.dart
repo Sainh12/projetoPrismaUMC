@@ -5,17 +5,24 @@ import 'package:projeto_base_prisma/application/view/TelasTeste.dart';
 import 'package:projeto_base_prisma/infraestructure/controller/http/file_controller_api.dart';
 import 'package:projeto_base_prisma/infraestructure/controller/http/login_api.dart';
 import 'package:projeto_base_prisma/infraestructure/repository/gerenciadoBancoDeDados.dart';
+import 'package:projeto_base_prisma/infraestructure/repository/app_database_factory.dart';
 import 'package:projeto_base_prisma/infraestructure/controller/http/quiz_api.dart';
 import 'package:projeto_base_prisma/infraestructure/security/session_store.dart';
+import 'package:sqflite/sqflite.dart' as sqflite;
 
 final List<HttpServer> _servers = [];
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  configureDatabaseFactory(sqflite.databaseFactory);
   final sessions = SessionStore();
-  final fileApi = FileController(sessions: sessions);
+  final userRepository = GerenciadorBancoDeDados();
+  final fileApi = FileController(
+    sessions: sessions,
+    isProfessor: userRepository.isProfessorById,
+  );
   final loginApi = LoginApi(
-    repository: GerenciadorBancoDeDados(),
+    repository: userRepository,
     sessions: sessions,
     onUserDeleted: fileApi.deleteUserFiles,
   );

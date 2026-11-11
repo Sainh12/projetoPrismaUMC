@@ -3,7 +3,7 @@ import 'package:projeto_base_prisma/domain/Professor.dart';
 import 'package:projeto_base_prisma/domain/User.dart';
 import 'package:projeto_base_prisma/infraestructure/repository/database_helper_users.dart';
 import 'package:projeto_base_prisma/infraestructure/repository/user_repository.dart';
-import 'package:sqflite/sqflite.dart';
+import 'package:sqflite_common/sqlite_api.dart';
 
 class GerenciadorBancoDeDados implements UserRepository {
   @override
@@ -121,7 +121,6 @@ class GerenciadorBancoDeDados implements UserRepository {
         u.escola,
         u.tipo_usuario,
         p.materia,
-        p.licenciatura,
         p.cndb,
         a.serie
       FROM Usuarios u
@@ -139,5 +138,18 @@ class GerenciadorBancoDeDados implements UserRepository {
       'aluno' => Aluno.fromMap(rows.first),
       _ => throw StateError('Tipo de usuário inválido no banco.'),
     };
+  }
+
+  @override
+  Future<bool> isProfessorById(String userId) async {
+    final db = await DatabaseHelperUsers.instance.database;
+    final users = await db.query(
+      'Usuarios',
+      columns: ['usuario_id'],
+      where: 'usuario_id = ? AND tipo_usuario = ?',
+      whereArgs: [userId, 'professor'],
+      limit: 1,
+    );
+    return users.isNotEmpty;
   }
 }

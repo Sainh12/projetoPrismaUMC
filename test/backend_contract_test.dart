@@ -5,6 +5,7 @@ import 'package:projeto_base_prisma/domain/Aluno.dart';
 import 'package:projeto_base_prisma/domain/Professor.dart';
 import 'package:projeto_base_prisma/domain/User.dart';
 import 'package:projeto_base_prisma/domain/pergunta.dart';
+import 'package:projeto_base_prisma/application/view/api_response.dart';
 import 'package:projeto_base_prisma/infraestructure/controller/http/file_controller_api.dart';
 import 'package:projeto_base_prisma/infraestructure/controller/http/login_api.dart';
 import 'package:projeto_base_prisma/infraestructure/controller/http/quiz_api.dart';
@@ -16,6 +17,36 @@ import 'package:shelf/shelf.dart';
 import 'package:test/test.dart';
 
 void main() {
+  group('API response decoding', () {
+    test('reports plain-text route errors without attempting JSON parsing', () {
+      expect(
+        () => decodeApiResponseObject(
+          'Route not found',
+          statusCode: 404,
+          fallbackMessage: 'Não foi possível carregar as aulas.',
+        ),
+        throwsA(
+          isA<Exception>().having(
+            (error) => error.toString(),
+            'message',
+            contains('Reinicie o servidor de arquivos'),
+          ),
+        ),
+      );
+    });
+
+    test('decodes successful JSON object responses', () {
+      expect(
+        decodeApiResponseObject(
+          '{"videos":[]}',
+          statusCode: 200,
+          fallbackMessage: 'Falha ao carregar.',
+        ),
+        {'videos': []},
+      );
+    });
+  });
+
   group('domain models', () {
     test('Aluno maps profile fields without exposing a password', () {
       final aluno = Aluno.fromJson(null, {
@@ -41,13 +72,13 @@ void main() {
         'escola': 'Escola Teste',
         'tipo_usuario': 'professor',
         'materia': 'Matemática',
-        'licenciatura': 'Matemática',
+        'cndb': 'CNDB-123',
       });
 
       expect(professor.id, 'professor-1');
       expect(professor.toMap()['Professores'], {
         'id': 'professor-1',
-        'licenciatura': 'Matemática',
+        'cndb': 'CNDB-123',
         'materia': 'Matemática',
       });
     });
@@ -149,6 +180,79 @@ void main() {
         409,
       );
     });
+
+    test(
+      'registers teachers with CNDB and materia in profile responses',
+      () async {
+        final registration = await api.handler(
+          _jsonRequest('POST', '/api/users/cadastrar', {
+            'tipo_usuario': 'professor',
+            'nome': 'Professora Teste',
+            'email': 'professora@example.test',
+            'cpf': '10987654321',
+            'escola': 'Escola Teste',
+            'cndb': 'CNDB-123',
+            'materia': 'Matemática',
+            'senha': 'Senha-segura-123',
+          }),
+        );
+
+        expect(registration.statusCode, 201);
+        final professor = repository.users.single as Professor;
+        expect(professor.cndb, 'CNDB-123');
+        expect(professor.materia, 'Matemática');
+        expect(professor.toMap()['Professores'], {
+          'id': professor.id,
+          'cndb': 'CNDB-123',
+          'materia': 'Matemática',
+        });
+
+        final login = await api.handler(
+          _jsonRequest('POST', '/api/users/acesso', {
+            'email': professor.email,
+            'senha': 'Senha-segura-123',
+          }),
+        );
+        final loginData = jsonDecode(await login.readAsString());
+        expect(loginData['profile']['cndb'], 'CNDB-123');
+        expect(loginData['profile']['materia'], 'Matemática');
+        expect(loginData['profile'].containsKey('licenciatura'), isFalse);
+
+        final token = loginData['access_token'] as String;
+        final profileResponse = await api.handler(
+          Request(
+            'GET',
+            Uri.parse(
+              'http://localhost/api/users/info?email=${professor.email}',
+            ),
+            headers: {'authorization': 'Bearer $token'},
+          ),
+        );
+        final profile = jsonDecode(await profileResponse.readAsString());
+        expect(profileResponse.statusCode, 200);
+        expect(profile['cndb'], 'CNDB-123');
+        expect(profile['materia'], 'Matemática');
+        expect(profile.containsKey('licenciatura'), isFalse);
+
+        final updateResponse = await api.handler(
+          Request(
+            'PATCH',
+            Uri.parse('http://localhost/api/users/${professor.id}'),
+            headers: {'authorization': 'Bearer $token'},
+            body: jsonEncode({
+              ...profile,
+              'cpf': professor.cpf,
+              'cndb': 'CNDB-456',
+              'materia': 'Física',
+            }),
+          ),
+        );
+        expect(updateResponse.statusCode, 204);
+        final updatedProfessor = repository.users.single as Professor;
+        expect(updatedProfessor.cndb, 'CNDB-456');
+        expect(updatedProfessor.materia, 'Física');
+      },
+    );
 
     test(
       'protects user information and restricts access to token owner',
@@ -450,6 +554,7 @@ void main() {
     test('rejects unauthenticated uploads', () async {
       final controller = FileController(
         sessions: sessions,
+        isProfessor: (userId) async => userId == 'owner-id',
         uploadDirectory: uploadDirectory,
       );
       final response = await controller.router.call(_multipartRequest(''));
@@ -459,6 +564,7 @@ void main() {
     test('enforces the configured upload limit', () async {
       final controller = FileController(
         sessions: sessions,
+        isProfessor: (userId) async => userId == 'owner-id',
         uploadDirectory: uploadDirectory,
         maxUploadBytes: 4,
       );
@@ -476,51 +582,176 @@ void main() {
       );
     });
 
-    test('serves byte ranges and hides files from other users', () async {
+    test('lists uploaded videos for the shared feed', () async {
       final controller = FileController(
         sessions: sessions,
+        isProfessor: (userId) async => userId == 'owner-id',
         uploadDirectory: uploadDirectory,
       );
       final upload = await controller.router.call(
-        _multipartRequest('12345', token: token),
+        _multipartRequest('video bytes', token: token),
       );
-      expect(upload.statusCode, 201);
       final savedName = jsonDecode(await upload.readAsString())['name'];
-
-      final range = await controller.router.call(
-        Request(
-          'GET',
-          Uri.parse('http://localhost/api/video/$savedName'),
-          headers: {'authorization': 'Bearer $token', 'range': 'bytes=1-2'},
-        ),
-      );
-      expect(range.statusCode, 206);
-      expect(range.headers['content-range'], 'bytes 1-2/5');
-      expect(await range.readAsString(), '23');
-
       final otherToken = sessions.create('other-user');
-      final hidden = await controller.router.call(
+
+      final response = await controller.router.call(
         Request(
           'GET',
-          Uri.parse('http://localhost/api/video/$savedName'),
+          Uri.parse('http://localhost/api/videos'),
           headers: {'authorization': 'Bearer $otherToken'},
         ),
       );
-      expect(hidden.statusCode, 404);
 
-      await controller.deleteUserFiles('owner-id');
-      expect(
-        await uploadDirectory
-            .list(recursive: true)
-            .where((entity) => entity is File)
-            .toList(),
-        isEmpty,
-      );
+      expect(response.statusCode, 200);
+      final data = jsonDecode(await response.readAsString()) as Map;
+      final videos = data['videos'] as List;
+      expect(videos.single['name'], savedName);
     });
+
+    test('lists only the authenticated professor videos', () async {
+      final controller = FileController(
+        sessions: sessions,
+        isProfessor: (userId) async => true,
+        uploadDirectory: uploadDirectory,
+      );
+      final ownerUpload = await controller.router.call(
+        _multipartRequest('owner video', token: token),
+      );
+      final ownerVideo = jsonDecode(await ownerUpload.readAsString())['name'];
+      final otherToken = sessions.create('other-user');
+      await controller.router.call(
+        _multipartRequest('other video', token: otherToken),
+      );
+
+      final response = await controller.router.call(
+        Request(
+          'GET',
+          Uri.parse('http://localhost/api/my-videos'),
+          headers: {'authorization': 'Bearer $token'},
+        ),
+      );
+
+      expect(response.statusCode, 200);
+      final videos =
+          (jsonDecode(await response.readAsString()) as Map)['videos'] as List;
+      expect(videos.map((video) => video['name']), [ownerVideo]);
+    });
+
+    test('restricts personal video listing to professors', () async {
+      final studentToken = sessions.create('student-id');
+      final controller = FileController(
+        sessions: sessions,
+        isProfessor: (userId) async => userId == 'owner-id',
+        uploadDirectory: uploadDirectory,
+      );
+
+      final response = await controller.router.call(
+        Request(
+          'GET',
+          Uri.parse('http://localhost/api/my-videos'),
+          headers: {'authorization': 'Bearer $studentToken'},
+        ),
+      );
+
+      expect(response.statusCode, 403);
+    });
+
+    test('deletes only the authenticated professor own video', () async {
+      final controller = FileController(
+        sessions: sessions,
+        isProfessor: (userId) async => userId != 'student-id',
+        uploadDirectory: uploadDirectory,
+      );
+      final ownerUpload = await controller.router.call(
+        _multipartRequest('owner video', token: token),
+      );
+      final ownerVideo = jsonDecode(await ownerUpload.readAsString())['name'];
+      final otherToken = sessions.create('other-user');
+      final otherUpload = await controller.router.call(
+        _multipartRequest('other video', token: otherToken),
+      );
+      final otherVideo = jsonDecode(await otherUpload.readAsString())['name'];
+
+      final cannotDeleteOther = await controller.router.call(
+        Request(
+          'DELETE',
+          Uri.parse('http://localhost/api/video/$otherVideo'),
+          headers: {'authorization': 'Bearer $token'},
+        ),
+      );
+      expect(cannotDeleteOther.statusCode, 404);
+
+      final deleteOwn = await controller.router.call(
+        Request(
+          'DELETE',
+          Uri.parse('http://localhost/api/video/$ownerVideo'),
+          headers: {'authorization': 'Bearer $token'},
+        ),
+      );
+      expect(deleteOwn.statusCode, 200);
+
+      final studentToken = sessions.create('student-id');
+      final cannotDeleteAsStudent = await controller.router.call(
+        Request(
+          'DELETE',
+          Uri.parse('http://localhost/api/video/$otherVideo'),
+          headers: {'authorization': 'Bearer $studentToken'},
+        ),
+      );
+      expect(cannotDeleteAsStudent.statusCode, 403);
+    });
+
+    test(
+      'serves byte ranges and shares videos with authenticated users',
+      () async {
+        final controller = FileController(
+          sessions: sessions,
+          isProfessor: (userId) async => userId == 'owner-id',
+          uploadDirectory: uploadDirectory,
+        );
+        final upload = await controller.router.call(
+          _multipartRequest('12345', token: token),
+        );
+        expect(upload.statusCode, 201);
+        final savedName = jsonDecode(await upload.readAsString())['name'];
+
+        final range = await controller.router.call(
+          Request(
+            'GET',
+            Uri.parse('http://localhost/api/video/$savedName'),
+            headers: {'authorization': 'Bearer $token', 'range': 'bytes=1-2'},
+          ),
+        );
+        expect(range.statusCode, 206);
+        expect(range.headers['content-range'], 'bytes 1-2/5');
+        expect(await range.readAsString(), '23');
+
+        final otherToken = sessions.create('other-user');
+        final hidden = await controller.router.call(
+          Request(
+            'GET',
+            Uri.parse('http://localhost/api/video/$savedName'),
+            headers: {'authorization': 'Bearer $otherToken'},
+          ),
+        );
+        expect(hidden.statusCode, 200);
+        expect(await hidden.readAsString(), '12345');
+
+        await controller.deleteUserFiles('owner-id');
+        expect(
+          await uploadDirectory
+              .list(recursive: true)
+              .where((entity) => entity is File)
+              .toList(),
+          isEmpty,
+        );
+      },
+    );
 
     test('rejects malformed or unsatisfiable range headers', () async {
       final controller = FileController(
         sessions: sessions,
+        isProfessor: (userId) async => userId == 'owner-id',
         uploadDirectory: uploadDirectory,
       );
       final upload = await controller.router.call(
@@ -538,6 +769,21 @@ void main() {
         );
         expect(response.statusCode, 416, reason: range);
       }
+    });
+
+    test('rejects uploads from non-professors', () async {
+      final studentToken = sessions.create('student-id');
+      final controller = FileController(
+        sessions: sessions,
+        isProfessor: (_) async => false,
+        uploadDirectory: uploadDirectory,
+      );
+
+      final response = await controller.router.call(
+        _multipartRequest('video', token: studentToken),
+      );
+
+      expect(response.statusCode, 403);
     });
   });
 }
@@ -633,6 +879,10 @@ class _MemoryUserRepository implements UserRepository {
     }
     return null;
   }
+
+  @override
+  Future<bool> isProfessorById(String userId) async =>
+      users.any((user) => user.id == userId && user.tipoUsuario == 'professor');
 
   @override
   Future<int> atualizacaoUsuario(User user) async {

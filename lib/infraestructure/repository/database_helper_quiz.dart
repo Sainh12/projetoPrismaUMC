@@ -1,5 +1,6 @@
 import 'package:path/path.dart';
-import 'package:sqflite/sqflite.dart';
+import 'package:projeto_base_prisma/infraestructure/repository/app_database_factory.dart';
+import 'package:sqflite_common/sqlite_api.dart';
 
 class DatabaseHelperQuiz {
   DatabaseHelperQuiz._privateConstructor();
@@ -12,17 +13,19 @@ class DatabaseHelperQuiz {
   Future<Database> get database async => _database ??= await _conexao();
 
   Future<Database> _conexao() async {
-    final path = join(await getDatabasesPath(), 'quiz.db');
-    return openDatabase(
+    final path = join(await appDatabaseFactory.getDatabasesPath(), 'quiz.db');
+    return appDatabaseFactory.openDatabase(
       path,
-      version: 2,
-      onConfigure: (db) async {
-        await db.execute('PRAGMA foreign_keys = ON');
-      },
-      onCreate: (db, version) => _criarTabelaPerguntas(db),
-      onUpgrade: (db, oldVersion, newVersion) async {
-        if (oldVersion < 2) await _criarTabelaPerguntas(db);
-      },
+      options: OpenDatabaseOptions(
+        version: 2,
+        onConfigure: (db) async {
+          await db.execute('PRAGMA foreign_keys = ON');
+        },
+        onCreate: (db, version) => _criarTabelaPerguntas(db),
+        onUpgrade: (db, oldVersion, newVersion) async {
+          if (oldVersion < 2) await _criarTabelaPerguntas(db);
+        },
+      ),
     );
   }
 
