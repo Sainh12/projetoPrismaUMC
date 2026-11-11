@@ -91,7 +91,7 @@
       width: min(54vw, 224px);
       height: min(54vw, 224px);
       margin-bottom: 12px;
-      color: white;
+      object-fit: contain;
     }
 
     .splash-title {
@@ -112,6 +112,25 @@
 
     .splash-tagline + .splash-tagline {
       margin-top: 12px;
+    }
+
+    @media (max-width: 600px) {
+      .splash-icon {
+        width: min(72vw, 290px);
+        height: min(72vw, 290px);
+        margin-bottom: 20px;
+      }
+
+      .splash-title {
+        font-size: clamp(54px, 17vw, 74px);
+        letter-spacing: clamp(7px, 2.8vw, 12px);
+      }
+
+      .splash-tagline {
+        margin-top: 28px;
+        font-size: clamp(21px, 7vw, 30px);
+        letter-spacing: clamp(3px, 1.4vw, 6px);
+      }
     }
 
     @keyframes loading {
@@ -141,9 +160,9 @@
       <div class="loading-indicator"></div>
     </div>
     <main class="splash-content">
-      <svg class="splash-icon" viewBox="0 0 128 128" aria-hidden="true">
-        <path fill="currentColor" d="M64 13 5 43l59 30 47-24v34h9V43L64 13Zm-38 49v27c20 17 56 17 76 0V62L64 82 26 62Z"/>
-      </svg>
+      <img class="splash-icon"
+           src="assets/lib/application/icons/prisma_logo.png"
+           alt="">
       <h1 class="splash-title">PRISMA</h1>
       <p class="splash-tagline">TODAS AS MATÉRIAS.</p>
       <p class="splash-tagline">UM SÓ LUGAR.</p>
