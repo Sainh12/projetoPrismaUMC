@@ -4,8 +4,11 @@ import 'dart:io';
 import 'package:projeto_base_prisma/domain/Aluno.dart';
 import 'package:projeto_base_prisma/domain/Professor.dart';
 import 'package:projeto_base_prisma/domain/User.dart';
+import 'package:projeto_base_prisma/domain/pergunta.dart';
 import 'package:projeto_base_prisma/infraestructure/controller/http/file_controller_api.dart';
 import 'package:projeto_base_prisma/infraestructure/controller/http/login_api.dart';
+import 'package:projeto_base_prisma/infraestructure/controller/http/quiz_api.dart';
+import 'package:projeto_base_prisma/infraestructure/repository/quiz_repository.dart';
 import 'package:projeto_base_prisma/infraestructure/repository/user_repository.dart';
 import 'package:projeto_base_prisma/infraestructure/security/password_hasher.dart';
 import 'package:projeto_base_prisma/infraestructure/security/session_store.dart';
@@ -313,6 +316,120 @@ void main() {
     );
   });
 
+  group('QuizApi', () {
+    late _MemoryQuizRepository repository;
+    late SessionStore sessions;
+    late QuizApi api;
+    late String professorToken;
+    late String studentToken;
+
+    setUp(() {
+      repository = _MemoryQuizRepository();
+      sessions = SessionStore();
+      professorToken = sessions.create('professor-1');
+      studentToken = sessions.create('aluno-1');
+      api = QuizApi(sessions: sessions, repository: repository);
+    });
+
+    test(
+      'professor creates questions and students answer without seeing the key',
+      () async {
+        final created = await api.handler(
+          _quizRequest(
+            'POST',
+            '/perguntas',
+            token: professorToken,
+            body: {'enunciado': 'Quanto é 2 + 2?', 'resposta_correta': '4'},
+          ),
+        );
+        expect(created.statusCode, 201);
+        final id = jsonDecode(await created.readAsString())['id'] as int;
+
+        final studentQuestion = await api.handler(
+          _quizRequest('GET', '/perguntas/$id', token: studentToken),
+        );
+        expect(studentQuestion.statusCode, 200);
+        final studentData = jsonDecode(await studentQuestion.readAsString());
+        expect(studentData['enunciado'], 'Quanto é 2 + 2?');
+        expect(studentData.containsKey('resposta_correta'), isFalse);
+
+        final answer = await api.handler(
+          _quizRequest(
+            'POST',
+            '/perguntas/$id/responder',
+            token: studentToken,
+            body: {'resposta': ' 4 '},
+          ),
+        );
+        expect(jsonDecode(await answer.readAsString())['correta'], isTrue);
+
+        final teacherQuestions = await api.handler(
+          _quizRequest('GET', '/perguntas', token: professorToken),
+        );
+        final teacherData = jsonDecode(await teacherQuestions.readAsString());
+        expect(teacherData.single['resposta_correta'], '4');
+      },
+    );
+
+    test(
+      'only teachers create questions and only students answer them',
+      () async {
+        final studentCreate = await api.handler(
+          _quizRequest(
+            'POST',
+            '/perguntas',
+            token: studentToken,
+            body: {'enunciado': 'Pergunta', 'resposta_correta': 'Resposta'},
+          ),
+        );
+        expect(studentCreate.statusCode, 403);
+
+        final professorAnswer = await api.handler(
+          _quizRequest(
+            'POST',
+            '/perguntas/1/responder',
+            token: professorToken,
+            body: {'resposta': 'Resposta'},
+          ),
+        );
+        expect(professorAnswer.statusCode, 403);
+
+        final missingAuth = await api.handler(
+          _quizRequest('GET', '/perguntas'),
+        );
+        expect(missingAuth.statusCode, 401);
+      },
+    );
+
+    test('rejects empty question data and reports missing questions', () async {
+      final invalid = await api.handler(
+        _quizRequest(
+          'POST',
+          '/perguntas',
+          token: professorToken,
+          body: {'enunciado': ' ', 'resposta_correta': 'Resposta'},
+        ),
+      );
+      expect(invalid.statusCode, 400);
+
+      final missing = await api.handler(
+        _quizRequest('GET', '/perguntas/999', token: studentToken),
+      );
+      expect(missing.statusCode, 404);
+    });
+
+    test('mounts quiz routes on the existing users API server', () async {
+      final usersApi = LoginApi(repository: _MemoryUserRepository());
+      usersApi.router.mount('/api/quiz/', api.handler);
+
+      final response = await usersApi.handler(
+        _quizRequest('GET', '/api/quiz/perguntas', token: studentToken),
+      );
+
+      expect(response.statusCode, 200);
+    });
+  });
+
   group('FileController', () {
     late Directory uploadDirectory;
     late SessionStore sessions;
@@ -433,6 +550,21 @@ Request _jsonRequest(String method, String path, Map<String, Object?> body) =>
       body: jsonEncode(body),
     );
 
+Request _quizRequest(
+  String method,
+  String path, {
+  String? token,
+  Map<String, Object?>? body,
+}) => Request(
+  method,
+  Uri.parse('http://localhost$path'),
+  headers: {
+    if (body != null) 'content-type': 'application/json',
+    if (token != null) 'authorization': 'Bearer $token',
+  },
+  body: body == null ? null : jsonEncode(body),
+);
+
 Request _multipartRequest(String content, {String? token}) => Request(
   'POST',
   Uri.parse('http://localhost/api/upload'),
@@ -518,4 +650,41 @@ class _MemoryUserRepository implements UserRepository {
     users.removeAt(index);
     return 1;
   }
+}
+
+class _MemoryQuizRepository implements QuizRepository {
+  final Map<String, String> roles = {
+    'professor-1': 'professor',
+    'aluno-1': 'aluno',
+  };
+  final List<Pergunta> questions = [];
+  int _nextId = 1;
+
+  @override
+  Future<String?> tipoUsuario(String userId) async => roles[userId];
+
+  @override
+  Future<int> adicionarPergunta(
+    String professorId,
+    String enunciado,
+    String respostaCorreta,
+  ) async {
+    final id = _nextId++;
+    questions.add(
+      Pergunta(id: id, enunciado: enunciado, respostaCorreta: respostaCorreta),
+    );
+    return id;
+  }
+
+  @override
+  Future<Pergunta?> buscarPergunta(int id) async {
+    for (final question in questions) {
+      if (question.id == id) return question;
+    }
+    return null;
+  }
+
+  @override
+  Future<List<Pergunta>> listarPerguntas() async =>
+      List.unmodifiable(questions);
 }
