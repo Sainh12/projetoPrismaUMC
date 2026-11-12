@@ -13,6 +13,7 @@ import 'package:uuid/uuid.dart';
 class FileController {
   FileController({
     required this.sessions,
+    required this.isProfessor,
     Directory? uploadDirectory,
     this.maxUploadBytes = 100 * 1024 * 1024,
   }) : uploadDirectory = uploadDirectory ?? Directory('uploads') {
@@ -20,11 +21,14 @@ class FileController {
       throw ArgumentError.value(maxUploadBytes, 'maxUploadBytes');
     }
     router.post('/api/upload', _uploadVideo);
+    router.get('/api/videos', _listVideos);
+    router.get('/api/my-videos', _listMyVideos);
     router.get('/api/video/<videoName>', _getVideo);
     router.delete('/api/video/<videoName>', _deleteVideo);
   }
 
   final SessionStore sessions;
+  final Future<bool> Function(String userId) isProfessor;
   final Directory uploadDirectory;
   final int maxUploadBytes;
   final Router router = Router();
@@ -53,6 +57,11 @@ class FileController {
   Future<Response> _uploadVideo(Request request) async {
     final userId = sessions.userIdFor(request);
     if (userId == null) return _unauthorized();
+    if (!await isProfessor(userId)) {
+      return _json(403, {
+        'message': 'Apenas professores podem publicar vídeos',
+      });
+    }
     if (!request.isMultipart) {
       return _json(400, {'message': 'Envie multipart/form-data'});
     }
@@ -97,12 +106,78 @@ class FileController {
     return _json(400, {'message': 'Nenhum arquivo de vídeo foi enviado'});
   }
 
+  Future<Response> _listVideos(Request request) async {
+    if (sessions.userIdFor(request) == null) return _unauthorized();
+
+    final videos = <Map<String, Object?>>[];
+    if (await uploadDirectory.exists()) {
+      await for (final ownerDirectory in uploadDirectory.list(
+        followLinks: false,
+      )) {
+        if (ownerDirectory is! Directory) continue;
+        await for (final entity in ownerDirectory.list(followLinks: false)) {
+          if (entity is! File ||
+              !_allowedExtensions.contains(
+                p.extension(entity.path).toLowerCase(),
+              )) {
+            continue;
+          }
+          final stat = await entity.stat();
+          videos.add({
+            'name': p.basename(entity.path),
+            'uploaded_at': stat.modified.toUtc().toIso8601String(),
+          });
+        }
+      }
+    }
+    videos.sort(
+      (left, right) => (right['uploaded_at'] as String).compareTo(
+        left['uploaded_at'] as String,
+      ),
+    );
+    return _json(200, {'videos': videos});
+  }
+
+  Future<Response> _listMyVideos(Request request) async {
+    final userId = sessions.userIdFor(request);
+    if (userId == null) return _unauthorized();
+    if (!await isProfessor(userId)) {
+      return _json(403, {
+        'message': 'Apenas professores podem listar seus vídeos',
+      });
+    }
+
+    final videos = <Map<String, Object?>>[];
+    final userDirectory = _directoryForUser(userId);
+    if (await userDirectory.exists()) {
+      await for (final entity in userDirectory.list(followLinks: false)) {
+        if (entity is! File ||
+            !_allowedExtensions.contains(
+              p.extension(entity.path).toLowerCase(),
+            )) {
+          continue;
+        }
+        final stat = await entity.stat();
+        videos.add({
+          'name': p.basename(entity.path),
+          'uploaded_at': stat.modified.toUtc().toIso8601String(),
+        });
+      }
+    }
+    videos.sort(
+      (left, right) => (right['uploaded_at'] as String).compareTo(
+        left['uploaded_at'] as String,
+      ),
+    );
+    return _json(200, {'videos': videos});
+  }
+
   Future<Response> _getVideo(Request request, String name) async {
     final userId = sessions.userIdFor(request);
     if (userId == null) return _unauthorized();
     final safeName = p.basename(name);
-    final file = File(p.join(_directoryForUser(userId).path, safeName));
-    if (!await file.exists()) {
+    final file = await _findVideo(safeName);
+    if (file == null) {
       return _json(404, {'message': 'Vídeo não encontrado'});
     }
 
@@ -163,6 +238,9 @@ class FileController {
   Future<Response> _deleteVideo(Request request, String name) async {
     final userId = sessions.userIdFor(request);
     if (userId == null) return _unauthorized();
+    if (!await isProfessor(userId)) {
+      return _json(403, {'message': 'Apenas professores podem excluir vídeos'});
+    }
     final safeName = p.basename(name);
     final file = File(p.join(_directoryForUser(userId).path, safeName));
     if (!await file.exists()) {
@@ -180,6 +258,18 @@ class FileController {
 
   Response _rangeNotSatisfiable(int length) =>
       Response(416, headers: {'content-range': 'bytes */$length'});
+
+  Future<File?> _findVideo(String name) async {
+    if (!await uploadDirectory.exists()) return null;
+    await for (final ownerDirectory in uploadDirectory.list(
+      followLinks: false,
+    )) {
+      if (ownerDirectory is! Directory) continue;
+      final file = File(p.join(ownerDirectory.path, name));
+      if (await file.exists()) return file;
+    }
+    return null;
+  }
 
   Directory _directoryForUser(String userId) {
     final userKey = base64Url.encode(utf8.encode(userId)).replaceAll('=', '');

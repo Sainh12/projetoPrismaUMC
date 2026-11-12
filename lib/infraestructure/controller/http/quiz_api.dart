@@ -6,7 +6,7 @@ import 'package:projeto_base_prisma/infraestructure/repository/quiz_repository.d
 import 'package:projeto_base_prisma/infraestructure/security/session_store.dart';
 import 'package:shelf/shelf.dart';
 import 'package:shelf_router/shelf_router.dart';
-import 'package:sqflite/sqflite.dart';
+import 'package:sqflite_common/sqlite_api.dart';
 
 class QuizApi {
   QuizApi({required this.sessions, QuizRepository? repository})

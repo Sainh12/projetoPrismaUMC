@@ -18,11 +18,19 @@ dependencies:
   sqflite: ^2.3.0
   path: ^1.8.3
   bcrypt: 1.2.0
-  
+  video_player: ^2.14.1
+  file_picker: ^13.3.3
+  file_picker_web: ^4.2.1
+  flutter_web_plugins:
+    sdk: flutter
+  web: ^1.1.2
+  sqflite_common_ffi: ^2.4.7
+  sqflite_common: ^2.5.17
 flutter:
   uses-material-design: true
   assets:
     - lib/application/icons/prisma_logo.png
+    - lib/application/icons/firefly_video.mp4
 dev_dependencies:
   lints: ^6.0.0
   test: ^1.25.6

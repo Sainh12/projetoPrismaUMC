@@ -1,31 +1,43 @@
 import 'dart:io';
 
-import 'package:projeto_base_prisma/domain/Aluno.dart';
-import 'package:projeto_base_prisma/domain/User.dart';
 import 'package:projeto_base_prisma/infraestructure/controller/http/file_controller_api.dart';
 import 'package:projeto_base_prisma/infraestructure/controller/http/login_api.dart';
-import 'package:projeto_base_prisma/infraestructure/repository/user_repository.dart';
-import 'package:projeto_base_prisma/infraestructure/security/password_hasher.dart';
+import 'package:projeto_base_prisma/infraestructure/controller/http/quiz_api.dart';
+import 'package:projeto_base_prisma/infraestructure/repository/app_database_factory.dart';
+import 'package:projeto_base_prisma/infraestructure/repository/gerenciadoBancoDeDados.dart';
 import 'package:projeto_base_prisma/infraestructure/security/session_store.dart';
+import 'package:path/path.dart' as p;
 import 'package:shelf/shelf.dart';
 import 'package:shelf/shelf_io.dart' as shelf_io;
-
-const _demoEmail = 'aluno@prisma.test';
-const _demoPassword = 'Prisma123!';
+import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
 Future<void> main() async {
-  final repository = _MemoryUserRepository();
-  const passwordHasher = PasswordHasher(logRounds: 4);
-  await repository.addDemoUser(passwordHasher);
+  sqfliteFfiInit();
+  final sqliteFactory = databaseFactoryFfi;
+  configureDatabaseFactory(sqliteFactory);
+  final dataDirectory = Directory(
+    Platform.environment['PRISMA_DATA_DIR'] ?? 'data',
+  ).absolute;
+  final databaseDirectory = Directory(p.join(dataDirectory.path, 'databases'));
+  await databaseDirectory.create(recursive: true);
+  await Directory(p.join(dataDirectory.path, 'uploads'))
+      .create(recursive: true);
+  await sqliteFactory.setDatabasesPath(databaseDirectory.path);
 
+  final repository = GerenciadorBancoDeDados();
   final sessions = SessionStore();
-  final fileApi = FileController(sessions: sessions);
+  final fileApi = FileController(
+    sessions: sessions,
+    isProfessor: repository.isProfessorById,
+    uploadDirectory: Directory(p.join(dataDirectory.path, 'uploads')),
+  );
   final loginApi = LoginApi(
     repository: repository,
-    passwordHasher: passwordHasher,
     sessions: sessions,
     onUserDeleted: fileApi.deleteUserFiles,
   );
+  final quizApi = QuizApi(sessions: sessions);
+  loginApi.router.mount('/api/quiz/', quizApi.handler);
 
   final loginServer = await shelf_io.serve(
     _withDevelopmentCors(loginApi.handler),
@@ -40,7 +52,11 @@ Future<void> main() async {
     );
     stdout.writeln('API de usuários: http://localhost:${loginServer.port}');
     stdout.writeln('API de arquivos: http://localhost:${fileServer.port}');
-    stdout.writeln('Conta demonstrativa: $_demoEmail / $_demoPassword');
+    stdout.writeln('Banco SQLite: ${await sqliteFactory.getDatabasesPath()}');
+    stdout.writeln(
+      'Arquivos de vídeo: ${p.join(dataDirectory.path, 'uploads')}',
+    );
+    stdout.writeln('Cadastre uma conta pela tela do aplicativo.');
     stdout.writeln('Pressione Ctrl+C para encerrar.');
   } catch (_) {
     await loginServer.close(force: true);
@@ -63,78 +79,4 @@ Handler _withDevelopmentCors(Handler inner) {
     final response = await inner(request);
     return response.change(headers: {...response.headers, ...corsHeaders});
   };
-}
-
-class _MemoryUserRepository implements UserRepository {
-  final Map<String, User> _usersById = {};
-  final Map<String, String> _passwordsByEmail = {};
-
-  Future<void> addDemoUser(PasswordHasher passwordHasher) async {
-    final user = Aluno.fromJson(null, {
-      'nome': 'Aluno de demonstração',
-      'email': _demoEmail,
-      'cpf': '12345678901',
-      'escola': 'Escola Prisma',
-      'tipo_usuario': 'aluno',
-      'serie': '3 ano',
-    });
-    await insertUser(user, passwordHash: await passwordHasher.hash(_demoPassword));
-  }
-
-  @override
-  Future<int> insertUser(User user, {required String passwordHash}) async {
-    if (_usersById.values.any(
-      (existing) => existing.email == user.email || existing.cpf == user.cpf,
-    )) {
-      return 0;
-    }
-    _usersById[user.id] = user;
-    _passwordsByEmail[user.email] = passwordHash;
-    return 1;
-  }
-
-  @override
-  Future<String?> getPasswordCredentialByEmail(String email) async =>
-      _passwordsByEmail[email];
-
-  @override
-  Future<int> updatePasswordHash(String email, String passwordHash) async {
-    if (!_passwordsByEmail.containsKey(email)) return 0;
-    _passwordsByEmail[email] = passwordHash;
-    return 1;
-  }
-
-  @override
-  Future<User?> getUserByEmail(String? email) async {
-    if (email == null) return null;
-    for (final user in _usersById.values) {
-      if (user.email == email) return user;
-    }
-    return null;
-  }
-
-  @override
-  Future<int> atualizacaoUsuario(User user) async {
-    final current = _usersById[user.id];
-    if (current == null ||
-        _usersById.values.any(
-          (existing) =>
-              existing.id != user.id &&
-              (existing.email == user.email || existing.cpf == user.cpf),
-        )) {
-      return 0;
-    }
-    final passwordHash = _passwordsByEmail.remove(current.email);
-    _usersById[user.id] = user;
-    if (passwordHash != null) _passwordsByEmail[user.email] = passwordHash;
-    return 1;
-  }
-
-  @override
-  Future<int> deletarUser(String id) async {
-    final user = _usersById.remove(id);
-    if (user == null) return 0;
-    _passwordsByEmail.remove(user.email);
-    return 1;
-  }
 }

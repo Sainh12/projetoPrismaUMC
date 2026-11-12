@@ -3,28 +3,34 @@ import 'package:projeto_base_prisma/domain/Professor.dart';
 import 'package:projeto_base_prisma/domain/User.dart';
 import 'package:projeto_base_prisma/infraestructure/repository/database_helper_users.dart';
 import 'package:projeto_base_prisma/infraestructure/repository/user_repository.dart';
+import 'package:sqflite_common/sqlite_api.dart';
 
 class GerenciadorBancoDeDados implements UserRepository {
   @override
   Future<int> insertUser(User user, {required String passwordHash}) async {
     final db = await DatabaseHelperUsers.instance.database;
-    return db.transaction((txn) async {
-      final existing = await txn.query(
-        'Usuarios',
-        columns: ['usuario_id'],
-        where: 'email = ? OR cpf = ?',
-        whereArgs: [user.email, user.cpf],
-        limit: 1,
-      );
-      if (existing.isNotEmpty) return 0;
+    try {
+      return await db.transaction((txn) async {
+        final existing = await txn.query(
+          'Usuarios',
+          columns: ['usuario_id'],
+          where: 'email = ? OR cpf = ?',
+          whereArgs: [user.email, user.cpf],
+          limit: 1,
+        );
+        if (existing.isNotEmpty) return 0;
 
-      for (final entry in user.toMap().entries) {
-        final values = Map<String, Object?>.from(entry.value);
-        if (entry.key == 'Usuarios') values['senha'] = passwordHash;
-        await txn.insert(entry.key, values);
-      }
-      return 1;
-    });
+        for (final entry in user.toMap().entries) {
+          final values = Map<String, Object?>.from(entry.value);
+          if (entry.key == 'Usuarios') values['senha'] = passwordHash;
+          await txn.insert(entry.key, values);
+        }
+        return 1;
+      });
+    } on DatabaseException catch (error) {
+      if (error.isUniqueConstraintError()) return 0;
+      rethrow;
+    }
   }
 
   @override
@@ -132,5 +138,18 @@ class GerenciadorBancoDeDados implements UserRepository {
       'aluno' => Aluno.fromMap(rows.first),
       _ => throw StateError('Tipo de usuário inválido no banco.'),
     };
+  }
+
+  @override
+  Future<bool> isProfessorById(String userId) async {
+    final db = await DatabaseHelperUsers.instance.database;
+    final users = await db.query(
+      'Usuarios',
+      columns: ['usuario_id'],
+      where: 'usuario_id = ? AND tipo_usuario = ?',
+      whereArgs: [userId, 'professor'],
+      limit: 1,
+    );
+    return users.isNotEmpty;
   }
 }
