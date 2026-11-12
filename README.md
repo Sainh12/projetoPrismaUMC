@@ -1,35 +1,59 @@
 # Projeto Prisma
 
-Aplicativo Flutter com APIs Shelf locais para usuários e arquivos.
+Aplicação Flutter Web com uma API local em Dart/Shelf e persistência SQLite.
 
-## Executar
+## Requisitos
 
-Na raiz deste pacote, execute:
+- Flutter e Dart instalados e disponíveis no terminal.
+- Google Chrome.
+
+## Executar localmente
+
+Se as dependências ainda não estiverem instaladas, execute uma vez:
 
 ```shell
 flutter pub get
-flutter run
 ```
 
-O entrypoint `lib/main.dart` inicia a API de usuários na porta `8080`, a API de arquivos na porta `8081` e a tela Flutter de teste. A API usa SQLite por `sqflite`; execute-a como aplicativo Flutter, não como servidor Dart CLI independente.
+Abra dois terminais na pasta do projeto.
 
-### Testar a tela Web com as APIs
-
-Para desenvolvimento no Chrome, abra dois terminais na raiz do projeto. O servidor abaixo usa armazenamento em memória e uma conta demonstrativa; os dados são apagados ao encerrá-lo.
-
-Terminal 1, iniciar as APIs locais com CORS de desenvolvimento:
+**Terminal 1 — API e banco de dados**
 
 ```shell
 dart run bin/dev_api.dart
 ```
 
-Terminal 2, iniciar a tela no Chrome:
+**Terminal 2 — aplicação Web**
 
 ```shell
 flutter run -d chrome -t lib/main_web.dart --web-port 5000
 ```
 
-Acesse `http://localhost:5000` e entre com `aluno@prisma.test` / `Prisma123!`. As APIs ficam em `http://localhost:8080` e `http://localhost:8081`. Esse servidor de demonstração usa armazenamento em memória; para testar o banco SQLite real, execute o entrypoint nativo `lib/main.dart`.
+Abra `http://localhost:5000`, cadastre uma conta pela tela e faça login. Não há
+conta demonstrativa pré-criada.
+
+## Persistência e sessões
+
+- Usuários, credenciais com hash e perguntas são armazenados em SQLite.
+- Vídeos são armazenados como arquivos em `data/uploads/`, organizados por
+  professor; os bytes não ficam dentro do SQLite.
+- O feed geral mostra vídeos compartilhados. A aba “Seus vídeos” lista apenas
+  os vídeos do professor autenticado.
+- Login cria um token Bearer compartilhado pelas APIs de usuários, quizzes e
+  vídeos. As sessões ficam na memória do processo, expiram após duas horas e
+  são invalidadas quando a API é reiniciada. Após reiniciar o servidor, basta
+  entrar novamente; as contas, perguntas e vídeos continuam persistidos.
+- Excluir uma conta pela API também remove a pasta de vídeos associada a ela.
+
+Este fluxo é para desenvolvimento e demonstração local. A API escuta apenas na
+interface de loopback e não fica hospedada na Internet.
+
+## Entry point Flutter nativo
+
+`lib/main.dart` também conecta as APIs ao SQLite usando o plugin `sqflite`.
+Esse entry point depende de uma plataforma Flutter nativa com o plugin SQLite
+configurado. Para a demonstração Web descrita acima, use `bin/dev_api.dart` e
+`lib/main_web.dart`.
 
 ## Testes e análise
 
@@ -38,22 +62,22 @@ flutter test
 flutter analyze
 ```
 
-## API de questões
+## Principais rotas da API
 
-A API de questões usa o mesmo servidor e autenticação da API de usuários (porta `8080`). Todas as rotas exigem o token Bearer recebido no login:
+As rotas protegidas exigem `Authorization: Bearer <token>` obtido no login.
 
-- `POST /api/quiz/perguntas` — apenas professores; JSON: `{"enunciado":"...","resposta_correta":"..."}`
-- `GET /api/quiz/perguntas` e `GET /api/quiz/perguntas/<id>` — alunos recebem apenas o enunciado; professores também recebem a resposta correta.
-- `POST /api/quiz/perguntas/<id>/responder` — apenas alunos; JSON: `{"resposta":"..."}`. Retorna `{"correta":true}` ou `{"correta":false}`.
+- `POST /api/users/cadastrar` — cria uma conta de aluno ou professor.
+- `POST /api/users/acesso` — autentica e cria uma sessão.
+- `POST /api/users/logout` — encerra a sessão atual.
+- `/api/users/...` — consulta, atualiza ou exclui a conta autenticada.
+- `POST /api/upload` — envia um vídeo; apenas professores.
+- `GET /api/videos` — lista vídeos publicados para o feed compartilhado.
+- `GET /api/my-videos` — lista os vídeos do professor autenticado.
+- `GET /api/video/<nome>` — transmite um vídeo, com suporte a `Range`.
+- `DELETE /api/video/<nome>` — exclui um vídeo do professor autenticado.
+- `POST /api/quiz/perguntas` — cria uma pergunta; apenas professores.
+- `GET /api/quiz/perguntas` e `GET /api/quiz/perguntas/<id>` — lista perguntas.
+- `POST /api/quiz/perguntas/<id>/responder` — responde; apenas alunos.
 
-## APIs
-
-- Cadastro: `POST /api/users/cadastrar`
-- Login: `POST /api/users/acesso`
-- Logout: `POST /api/users/logout`
-- Consulta, atualização e exclusão de usuário: `/api/users/...` (exigem `Authorization: Bearer <access_token>`)
-- Upload: `POST /api/upload` com `multipart/form-data` e token Bearer
-- Leitura em streaming: `GET /api/video/<nome>` com token Bearer e suporte a `Range`
-- Exclusão de arquivo: `DELETE /api/video/<nome>` com token Bearer
-
-Os detalhes de payloads, validação, limites, armazenamento e pendências para implantação estão em [test/analise_apis_e_persistencia.md](test/analise_apis_e_persistencia.md).
+Detalhes adicionais sobre validação, limites, armazenamento e pendências estão
+em [test/analise_apis_e_persistencia.md](test/analise_apis_e_persistencia.md).
