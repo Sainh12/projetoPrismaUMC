@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
+import 'package:projeto_base_prisma/application/theme/app_theme.dart';
 
 class CadastroAlunoPage extends StatefulWidget {
   const CadastroAlunoPage({super.key});
@@ -91,16 +92,8 @@ class _CadastroAlunoPageState extends State<CadastroAlunoPage> {
     }
   }
 
-  InputDecoration _inputDecoration(String hint) => InputDecoration(
-    hintText: hint,
-    filled: true,
-    fillColor: const Color(0xFFD9D9D9),
-    contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 16),
-    border: OutlineInputBorder(
-      borderRadius: BorderRadius.circular(15),
-      borderSide: BorderSide.none,
-    ),
-  );
+  InputDecoration _inputDecoration(String hint) =>
+      InputDecoration(hintText: hint);
 
   Widget _buildTextField({
     required String label,
@@ -295,120 +288,123 @@ class _CadastroAlunoPageState extends State<CadastroAlunoPage> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.white,
-      body: SingleChildScrollView(
-        child: Column(
-          children: [
-            Container(
-              width: double.infinity,
-              height: 289,
-              color: const Color(0xFF0D1F43),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: [
-                  Image.asset(
-                    'lib/application/icons/prisma_logo.png',
-                    height: 150,
-                    fit: BoxFit.contain,
-                  ),
-                  const SizedBox(height: 8),
-                  const Text(
-                    'CADASTRO',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 48,
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: 8,
+    return Theme(
+      data: AppTheme.auth,
+      child: Scaffold(
+        backgroundColor: Colors.white,
+        body: SingleChildScrollView(
+          child: Column(
+            children: [
+              Container(
+                width: double.infinity,
+                height: 289,
+                color: const Color(0xFF0D1F43),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    Image.asset(
+                      'lib/application/icons/prisma_logo.png',
+                      height: 150,
+                      fit: BoxFit.contain,
                     ),
-                  ),
-                  const SizedBox(height: 18),
-                ],
+                    const SizedBox(height: 8),
+                    const Text(
+                      'CADASTRO',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 48,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: 8,
+                      ),
+                    ),
+                    const SizedBox(height: 18),
+                  ],
+                ),
               ),
-            ),
-            Center(
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 420),
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(32, 32, 32, 32),
-                  child: Form(
-                    key: _formKey,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        _buildCommonFields(),
-                        const SizedBox(height: 24),
-                        const Text(
-                          'Qual categoria você se enquadra?',
-                          style: TextStyle(fontSize: 20, color: Colors.black),
-                        ),
-                        const SizedBox(height: 12),
-                        SegmentedButton<String>(
-                          emptySelectionAllowed: true,
-                          segments: const [
-                            ButtonSegment(
-                              value: 'aluno',
-                              label: Text('Sou Aluno'),
-                              icon: Icon(Icons.school_outlined),
-                            ),
-                            ButtonSegment(
-                              value: 'professor',
-                              label: Text('Sou Professor'),
-                              icon: Icon(Icons.cast_for_education_outlined),
-                            ),
-                          ],
-                          selected: _selectedCategory == null
-                              ? <String>{}
-                              : <String>{_selectedCategory!},
-                          onSelectionChanged: (selection) {
-                            setState(() {
-                              _selectedCategory = selection.isEmpty
-                                  ? null
-                                  : selection.first;
-                              _gradeController.clear();
-                              _subjectController.clear();
-                            });
-                          },
-                          style: SegmentedButton.styleFrom(
-                            selectedBackgroundColor: const Color(0xFF01D0AF),
-                            selectedForegroundColor: Colors.white,
-                            foregroundColor: const Color(0xFF0D1F43),
-                          ),
-                        ),
-                        if (_selectedCategory != null) ...[
+              Center(
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 420),
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(32, 32, 32, 32),
+                    child: Form(
+                      key: _formKey,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          _buildCommonFields(),
                           const SizedBox(height: 24),
-                          _buildRoleFields(),
-                        ],
-                        const SizedBox(height: 24),
-                        Center(
-                          child: Wrap(
-                            crossAxisAlignment: WrapCrossAlignment.center,
-                            children: [
-                              const Text('Já tem uma conta? '),
-                              TextButton(
-                                onPressed: () => Navigator.of(context).pop(),
-                                style: TextButton.styleFrom(
-                                  padding: EdgeInsets.zero,
-                                  minimumSize: Size.zero,
-                                  tapTargetSize:
-                                      MaterialTapTargetSize.shrinkWrap,
-                                  foregroundColor: Colors.black,
-                                  textStyle: const TextStyle(
-                                    decoration: TextDecoration.underline,
-                                  ),
-                                ),
-                                child: const Text('Entrar'),
+                          const Text(
+                            'Qual categoria você se enquadra?',
+                            style: TextStyle(fontSize: 20, color: Colors.black),
+                          ),
+                          const SizedBox(height: 12),
+                          SegmentedButton<String>(
+                            emptySelectionAllowed: true,
+                            segments: const [
+                              ButtonSegment(
+                                value: 'aluno',
+                                label: Text('Sou Aluno'),
+                                icon: Icon(Icons.school_outlined),
+                              ),
+                              ButtonSegment(
+                                value: 'professor',
+                                label: Text('Sou Professor'),
+                                icon: Icon(Icons.cast_for_education_outlined),
                               ),
                             ],
+                            selected: _selectedCategory == null
+                                ? <String>{}
+                                : <String>{_selectedCategory!},
+                            onSelectionChanged: (selection) {
+                              setState(() {
+                                _selectedCategory = selection.isEmpty
+                                    ? null
+                                    : selection.first;
+                                _gradeController.clear();
+                                _subjectController.clear();
+                              });
+                            },
+                            style: SegmentedButton.styleFrom(
+                              selectedBackgroundColor: const Color(0xFF01D0AF),
+                              selectedForegroundColor: Colors.white,
+                              foregroundColor: const Color(0xFF0D1F43),
+                            ),
                           ),
-                        ),
-                      ],
+                          if (_selectedCategory != null) ...[
+                            const SizedBox(height: 24),
+                            _buildRoleFields(),
+                          ],
+                          const SizedBox(height: 24),
+                          Center(
+                            child: Wrap(
+                              crossAxisAlignment: WrapCrossAlignment.center,
+                              children: [
+                                const Text('Já tem uma conta? '),
+                                TextButton(
+                                  onPressed: () => Navigator.of(context).pop(),
+                                  style: TextButton.styleFrom(
+                                    padding: EdgeInsets.zero,
+                                    minimumSize: Size.zero,
+                                    tapTargetSize:
+                                        MaterialTapTargetSize.shrinkWrap,
+                                    foregroundColor: Colors.black,
+                                    textStyle: const TextStyle(
+                                      decoration: TextDecoration.underline,
+                                    ),
+                                  ),
+                                  child: const Text('Entrar'),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );

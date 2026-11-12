@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:projeto_base_prisma/application/theme/app_theme.dart';
 
 class TelaDeCarregamento extends StatefulWidget {
   const TelaDeCarregamento({super.key, required this.nextPageBuilder});
@@ -28,7 +29,7 @@ class _TelaDeCarregamentoState extends State<TelaDeCarregamento> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF0D1F43),
+      backgroundColor: AppTheme.background,
       body: SafeArea(
         child: LayoutBuilder(
           builder: (context, constraints) {
@@ -45,7 +46,7 @@ class _TelaDeCarregamentoState extends State<TelaDeCarregamento> {
                   const Spacer(flex: 4),
                   Icon(
                     Icons.school_rounded,
-                    color: Colors.white,
+                    color: AppTheme.navy,
                     size: iconSize,
                   ),
                   const Spacer(flex: 1),
@@ -53,7 +54,8 @@ class _TelaDeCarregamentoState extends State<TelaDeCarregamento> {
                     'PRISMA',
                     textAlign: TextAlign.center,
                     style: TextStyle(
-                      color: Colors.white,
+                      color: AppTheme.navy,
+                      fontFamily: AppTheme.displayFontFamily,
                       fontSize: 64 * scale,
                       fontWeight: FontWeight.w700,
                       letterSpacing: 10 * scale,
@@ -64,7 +66,8 @@ class _TelaDeCarregamentoState extends State<TelaDeCarregamento> {
                     'TODAS AS MATÉRIAS.',
                     textAlign: TextAlign.center,
                     style: TextStyle(
-                      color: const Color(0xFF01D0AF),
+                      color: AppTheme.navy,
+                      fontFamily: AppTheme.displayFontFamily,
                       fontSize: 26 * scale,
                       fontWeight: FontWeight.w600,
                       letterSpacing: 5 * scale,
@@ -75,7 +78,8 @@ class _TelaDeCarregamentoState extends State<TelaDeCarregamento> {
                     'UM SÓ LUGAR.',
                     textAlign: TextAlign.center,
                     style: TextStyle(
-                      color: const Color(0xFF01D0AF),
+                      color: AppTheme.navy,
+                      fontFamily: AppTheme.displayFontFamily,
                       fontSize: 26 * scale,
                       fontWeight: FontWeight.w600,
                       letterSpacing: 5 * scale,

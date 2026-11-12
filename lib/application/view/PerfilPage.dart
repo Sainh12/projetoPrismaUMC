@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
+import 'package:projeto_base_prisma/application/theme/app_theme.dart';
 
 class PerfilPage extends StatefulWidget {
   const PerfilPage({
@@ -125,11 +126,10 @@ class _PerfilPageState extends State<PerfilPage> {
       'escola': _schoolController.text.trim(),
       if (_isStudent)
         'serie': _roleDetailController.text.trim()
-      else
-          ...{
-            'cndb': _roleDetailController.text.trim(),
-            'materia': _subjectController.text.trim(),
-          },
+      else ...{
+        'cndb': _roleDetailController.text.trim(),
+        'materia': _subjectController.text.trim(),
+      },
     };
 
     try {
@@ -266,22 +266,7 @@ class _PerfilPageState extends State<PerfilPage> {
             keyboardType: keyboardType,
             inputFormatters: inputFormatters,
             validator: validator,
-            decoration: InputDecoration(
-              filled: true,
-              fillColor: const Color(0xFFD9D9D9),
-              contentPadding: const EdgeInsets.symmetric(
-                horizontal: 14,
-                vertical: 16,
-              ),
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(15),
-                borderSide: BorderSide.none,
-              ),
-              enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(15),
-                borderSide: BorderSide.none,
-              ),
-            ),
+            decoration: const InputDecoration(),
           ),
         ],
       ),
@@ -293,7 +278,7 @@ class _PerfilPageState extends State<PerfilPage> {
     final roleLabel = _isStudent ? 'ALUNO' : 'PROFESSOR';
 
     return Container(
-      color: const Color(0xFFB9E1DB),
+      color: AppTheme.background,
       child: SingleChildScrollView(
         padding: const EdgeInsets.fromLTRB(20, 24, 20, 28),
         child: Center(
@@ -306,6 +291,7 @@ class _PerfilPageState extends State<PerfilPage> {
                   textAlign: TextAlign.center,
                   style: const TextStyle(
                     color: Colors.black,
+                    fontFamily: AppTheme.displayFontFamily,
                     fontSize: 32,
                     fontWeight: FontWeight.w600,
                     letterSpacing: 1.5,

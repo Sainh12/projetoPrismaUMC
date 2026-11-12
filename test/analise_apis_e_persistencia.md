@@ -2,7 +2,7 @@
 
 ## Resultado
 
-Os defeitos funcionais encontrados na API foram corrigidos nos arquivos ativos. A suíte cobre os handlers Shelf com repositório fake, hashing, autorização, upload, limite de tamanho e `Range`; **13 testes passaram** em `flutter test`.
+Os defeitos funcionais encontrados na API foram corrigidos nos arquivos ativos. A suíte cobre os handlers Shelf com repositório fake, hashing, autorização, upload, limite de tamanho, `Range`, tentativas de quiz e histórico; **34 testes passaram** em `flutter test`.
 
 O snapshot da implementação anterior está em `backup/current_source_20261107_1804.zip`. Ele foi criado antes das alterações funcionais e da inclusão do pacote `bcrypt`, portanto contém os fontes e a configuração de dependências anteriores, sem misturá-los às correções.
 
@@ -61,9 +61,28 @@ Para professor, substitua `serie` por `materia` e `licenciatura`.
 
 | Método e rota | Acesso | Resultado |
 |---|---|---|
-| `POST /api/upload` | Bearer | Recebe `multipart/form-data`; o campo do arquivo pode chamar-se `video`, `file` ou `arquivo`. Extensões aceitas: MP4, MOV, AVI, MKV e WEBM. |
+| `POST /api/upload` | Bearer de professor | Recebe `multipart/form-data` com arquivo (`video`, `file` ou `arquivo`) e `title` obrigatório, de até 120 caracteres. Extensões aceitas: MP4, MOV, AVI, MKV e WEBM. |
+| `GET /api/videos` | Bearer | Lista vídeos compartilhados com nome técnico, título e data de envio. |
+| `GET /api/my-videos` | Bearer de professor | Lista os vídeos do professor autenticado com título. |
 | `GET /api/video/<nome>` | Bearer do proprietário | Transmite o arquivo, inclusive com suporte a `Range: bytes=início-fim`. |
 | `DELETE /api/video/<nome>` | Bearer do proprietário | Remove o arquivo. |
+
+### Quiz — `http://<host>:8080`
+
+| Método e rota | Acesso | Resultado |
+|---|---|---|
+| `GET /api/quiz/quizzes` | Bearer | Professores recebem seus quizzes, incluindo rascunhos; alunos recebem somente os publicados. |
+| `POST /api/quiz/quizzes` | Professor | Cria (ou recupera) o rascunho da videoaula indicada por `video_id`; o nome da matéria define o título. |
+| `GET /api/quiz/quizzes/<id>` | Professor dono ou aluno, se publicado | Retorna o quiz e suas questões. A resposta correta só é incluída para o professor dono. |
+| `PUT /api/quiz/quizzes/<id>` | Professor dono | Substitui as questões do quiz. Alterar um quiz publicado volta a deixá-lo como rascunho. |
+| `POST /api/quiz/quizzes/<id>/publicar` | Professor dono | Publica o quiz após validar enunciados, alternativas e gabaritos. |
+| `DELETE /api/quiz/quizzes/<id>` | Professor dono | Exclui o quiz e suas questões. |
+| `GET /api/quiz/quizzes/<id>/tentativas` | Aluno, quiz publicado | Retorna somente o histórico do aluno autenticado, em ordem da mais recente para a mais antiga, e a nota mais recente. |
+| `POST /api/quiz/quizzes/<id>/tentativas` | Aluno, quiz publicado | Recebe resposta para cada questão, calcula nota de 0 a 10 e registra uma nova tentativa sem remover o histórico anterior. |
+| `GET /api/quiz/perguntas` | Bearer | Professores recebem suas perguntas; alunos recebem perguntas de quizzes publicados sem as respostas corretas. |
+| `POST /api/quiz/perguntas/<id>/responder` | Aluno, quiz publicado | Verifica a alternativa selecionada. |
+
+O corpo de criação do quiz é `{"video_id":"<nome-do-video>"}`. Para salvar, envie `{"questoes":[{"enunciado":"...","alternativas":["...","..."],"resposta_correta":"..."}]}`. Para registrar uma tentativa, envie `{"respostas":[{"pergunta_id":1,"resposta":"..."}]}` com uma resposta para cada questão publicada. Rascunhos são privados; os alunos só os veem depois da publicação.
 
 ## Hash e transição de dados antigos
 

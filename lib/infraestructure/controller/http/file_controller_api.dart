@@ -54,6 +54,20 @@ class FileController {
     if (await directory.exists()) await directory.delete(recursive: true);
   }
 
+  Future<bool> isVideoOwnedByUser(String userId, String videoName) async {
+    if (p.basename(videoName) != videoName ||
+        !_allowedExtensions.contains(p.extension(videoName).toLowerCase())) {
+      return false;
+    }
+    return File(p.join(_directoryForUser(userId).path, videoName)).exists();
+  }
+
+  Future<String> titleForVideo(String videoName) async {
+    final file = await _findVideo(p.basename(videoName));
+    if (file == null) return p.basenameWithoutExtension(videoName);
+    return _readVideoTitle(file);
+  }
+
   Future<Response> _uploadVideo(Request request) async {
     final userId = sessions.userIdFor(request);
     if (userId == null) return _unauthorized();
@@ -66,9 +80,22 @@ class FileController {
       return _json(400, {'message': 'Envie multipart/form-data'});
     }
 
+    String? title;
+    String? savedName;
+    File? destination;
+    var duplicateVideo = false;
     try {
       await for (final formData in request.multipartFormData) {
+        if (formData.name == 'title') {
+          title = await formData.part.transform(utf8.decoder).join();
+          continue;
+        }
         if (!_acceptedFields.contains(formData.name)) continue;
+        if (destination != null) {
+          duplicateVideo = true;
+          await formData.part.drain<void>();
+          continue;
+        }
 
         final originalName = p.basename(
           formData.filename ?? 'upload_${const Uuid().v4()}.mp4',
@@ -80,8 +107,8 @@ class FileController {
 
         final userDirectory = _directoryForUser(userId);
         await userDirectory.create(recursive: true);
-        final savedName = '${const Uuid().v4()}$extension';
-        final destination = File(p.join(userDirectory.path, savedName));
+        savedName = '${const Uuid().v4()}$extension';
+        destination = File(p.join(userDirectory.path, savedName));
         final sink = destination.openWrite();
         try {
           await _limitUploadSize(formData.part, maxUploadBytes).pipe(sink);
@@ -95,15 +122,51 @@ class FileController {
           if (await destination.exists()) await destination.delete();
           rethrow;
         }
-        return _json(201, {'message': 'Arquivo salvo', 'name': savedName});
       }
     } on FormatException {
+      if (destination != null && await destination.exists()) {
+        await destination.delete();
+      }
       return _json(400, {'message': 'Formulário multipart inválido'});
     } on IOException catch (error, stackTrace) {
+      if (destination != null && await destination.exists()) {
+        await destination.delete();
+      }
       stderr.writeln('Erro ao salvar upload: $error\n$stackTrace');
       return _json(500, {'message': 'Não foi possível salvar o arquivo'});
     }
-    return _json(400, {'message': 'Nenhum arquivo de vídeo foi enviado'});
+    if (destination == null || savedName == null) {
+      return _json(400, {'message': 'Nenhum arquivo de vídeo foi enviado'});
+    }
+    if (duplicateVideo) {
+      await destination.delete();
+      return _json(400, {'message': 'Envie apenas um vídeo por vez'});
+    }
+    final normalizedTitle = title?.trim();
+    if (normalizedTitle == null || normalizedTitle.isEmpty) {
+      await destination.delete();
+      return _json(400, {'message': 'O título do vídeo é obrigatório'});
+    }
+    if (normalizedTitle.length > 120) {
+      await destination.delete();
+      return _json(400, {
+        'message': 'O título deve ter no máximo 120 caracteres',
+      });
+    }
+    try {
+      await _titleFileFor(destination).writeAsString(normalizedTitle);
+    } on FileSystemException catch (error, stackTrace) {
+      if (await destination.exists()) await destination.delete();
+      stderr.writeln('Erro ao salvar o título do vídeo: $error\n$stackTrace');
+      return _json(500, {
+        'message': 'Não foi possível salvar o título do vídeo',
+      });
+    }
+    return _json(201, {
+      'message': 'Arquivo salvo',
+      'name': savedName,
+      'title': normalizedTitle,
+    });
   }
 
   Future<Response> _listVideos(Request request) async {
@@ -125,6 +188,7 @@ class FileController {
           final stat = await entity.stat();
           videos.add({
             'name': p.basename(entity.path),
+            'title': await _readVideoTitle(entity),
             'uploaded_at': stat.modified.toUtc().toIso8601String(),
           });
         }
@@ -160,6 +224,7 @@ class FileController {
         final stat = await entity.stat();
         videos.add({
           'name': p.basename(entity.path),
+          'title': await _readVideoTitle(entity),
           'uploaded_at': stat.modified.toUtc().toIso8601String(),
         });
       }
@@ -176,6 +241,9 @@ class FileController {
     final userId = sessions.userIdFor(request);
     if (userId == null) return _unauthorized();
     final safeName = p.basename(name);
+    if (!_allowedExtensions.contains(p.extension(safeName).toLowerCase())) {
+      return _json(404, {'message': 'Vídeo não encontrado'});
+    }
     final file = await _findVideo(safeName);
     if (file == null) {
       return _json(404, {'message': 'Vídeo não encontrado'});
@@ -249,6 +317,8 @@ class FileController {
 
     try {
       await file.delete();
+      final titleFile = _titleFileFor(file);
+      if (await titleFile.exists()) await titleFile.delete();
       return _json(200, {'deletado': safeName});
     } on FileSystemException catch (error, stackTrace) {
       stderr.writeln('Erro ao excluir vídeo: $error\n$stackTrace');
@@ -270,6 +340,18 @@ class FileController {
     }
     return null;
   }
+
+  Future<String> _readVideoTitle(File video) async {
+    final titleFile = _titleFileFor(video);
+    if (!await titleFile.exists()) {
+      return p.basenameWithoutExtension(video.path);
+    }
+    final title = (await titleFile.readAsString()).trim();
+    if (title.isEmpty) throw StateError('O título armazenado está vazio.');
+    return title;
+  }
+
+  File _titleFileFor(File video) => File('${video.path}.title');
 
   Directory _directoryForUser(String userId) {
     final userKey = base64Url.encode(utf8.encode(userId)).replaceAll('=', '');
