@@ -20,7 +20,14 @@ class DatabaseHelperArquivos {
         return db.execute('''
     CREATE TABLE arquivos (
     id INTEGER PRIMARY KEY,
-    reference TEXT NOT NULL
+    reference TEXT NOT NULL,
+    id_professor TEXT NOT NULL,
+
+    CONSTRAINT fk_professores_usuario
+        FOREIGN KEY (id_professor)
+        REFERENCES usuarios(usuario_id)
+        ON UPDATE CASCADE
+        ON DELETE CASCADE
     )
     ''');
       },

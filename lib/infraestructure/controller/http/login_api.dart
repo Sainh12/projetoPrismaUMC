@@ -123,7 +123,7 @@ class LoginApi {
         'cpf': cpf,
         'escola': school,
         'materia': materia,
-        'cndb': cndb,
+        'cndb': licenciatura,
       });
     }
 
@@ -273,7 +273,7 @@ class LoginApi {
         'cpf': cpf,
         'escola': school,
         'materia': materia,
-        'cndb': cndb,
+        'cndb': licenciatura,
       });
     } else {
       throw const _RequestException(400, 'tipo_usuario inválido');
@@ -354,8 +354,8 @@ class LoginApi {
     'tipo_usuario': user.tipoUsuario,
     if (user is Aluno) 'serie': user.serie,
     if (user is Professor) ...{
-      'cndb': user.cndb,
       'materia': user.materia,
+      'cndb': user.licenciatura,
     },
   };
 

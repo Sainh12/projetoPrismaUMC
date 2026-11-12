@@ -75,8 +75,8 @@ CREATE TABLE Usuarios (
 
 CREATE TABLE Professores (
     id TEXT PRIMARY KEY,
+    cndb VARCHAR(150) NOT NULL,
     materia VARCHAR (150) NOT NULL,
-    cndb TEXT NOT NULL DEFAULT '',
 
     CONSTRAINT fk_professores_usuario
         FOREIGN KEY (id)
