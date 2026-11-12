@@ -1,10 +1,12 @@
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+import 'package:projeto_base_prisma/application/theme/app_theme.dart';
 import 'package:projeto_base_prisma/application/view/api_response.dart';
 import 'package:projeto_base_prisma/application/view/file_picker_registration_stub.dart'
     if (dart.library.js_interop) 'package:projeto_base_prisma/application/view/file_picker_registration_web.dart'
     as file_picker_registration;
+import 'package:projeto_base_prisma/domain/video_resumo.dart';
 
 class CadastroVideoPage extends StatefulWidget {
   const CadastroVideoPage({super.key, required this.accessToken});
@@ -19,6 +21,7 @@ class _CadastroVideoPageState extends State<CadastroVideoPage> {
   static const _uploadUrl = 'http://localhost:8081/api/upload';
   static const _maxUploadBytes = 100 * 1024 * 1024;
 
+  final _titleController = TextEditingController();
   PlatformFile? _selectedFile;
   bool _isPicking = false;
   bool _isUploading = false;
@@ -50,7 +53,8 @@ class _CadastroVideoPageState extends State<CadastroVideoPage> {
 
   Future<void> _uploadVideo() async {
     final file = _selectedFile;
-    if (file == null) return;
+    final title = _titleController.text.trim();
+    if (file == null || title.isEmpty) return;
 
     setState(() => _isUploading = true);
     try {
@@ -60,6 +64,7 @@ class _CadastroVideoPageState extends State<CadastroVideoPage> {
       }
       final request = http.MultipartRequest('POST', Uri.parse(_uploadUrl))
         ..headers['Authorization'] = 'Bearer ${widget.accessToken}'
+        ..fields['title'] = title
         ..files.add(
           http.MultipartFile(
             'video',
@@ -78,12 +83,9 @@ class _CadastroVideoPageState extends State<CadastroVideoPage> {
         fallbackMessage: 'Não foi possível publicar o vídeo.',
       );
 
-      final name = data['name'];
-      if (name is! String || name.isEmpty) {
-        throw Exception('A API não retornou o vídeo publicado.');
-      }
+      final video = VideoResumo.fromJson(data);
       if (!mounted) return;
-      Navigator.of(context).pop(name);
+      Navigator.of(context).pop(video);
     } catch (error) {
       if (!mounted) return;
       _showError(error);
@@ -99,16 +101,22 @@ class _CadastroVideoPageState extends State<CadastroVideoPage> {
   }
 
   @override
+  void dispose() {
+    _titleController.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFB9E1DB),
+      backgroundColor: AppTheme.background,
       body: SafeArea(
         child: Column(
           children: [
             Container(
               height: 80,
               width: double.infinity,
-              color: const Color(0xFF0D1F43),
+              color: AppTheme.navy,
               padding: const EdgeInsets.symmetric(horizontal: 20),
               child: Row(
                 children: [
@@ -125,6 +133,7 @@ class _CadastroVideoPageState extends State<CadastroVideoPage> {
                     'NOVA AULA',
                     style: TextStyle(
                       color: Colors.white,
+                      fontFamily: AppTheme.displayFontFamily,
                       fontSize: 26,
                       fontWeight: FontWeight.w600,
                     ),
@@ -146,6 +155,7 @@ class _CadastroVideoPageState extends State<CadastroVideoPage> {
                           textAlign: TextAlign.center,
                           style: TextStyle(
                             color: Colors.black,
+                            fontFamily: AppTheme.displayFontFamily,
                             fontSize: 34,
                             fontWeight: FontWeight.w600,
                             letterSpacing: 1.5,
@@ -165,7 +175,7 @@ class _CadastroVideoPageState extends State<CadastroVideoPage> {
                                     ? Icons.video_library_outlined
                                     : Icons.check_circle_outline,
                                 size: 52,
-                                color: const Color(0xFF0D1F43),
+                                color: AppTheme.navy,
                               ),
                               const SizedBox(height: 20),
                               Text(
@@ -204,17 +214,30 @@ class _CadastroVideoPageState extends State<CadastroVideoPage> {
                           ),
                         ),
                         const SizedBox(height: 24),
+                        TextField(
+                          controller: _titleController,
+                          enabled: !_isUploading,
+                          maxLength: 120,
+                          textCapitalization: TextCapitalization.sentences,
+                          decoration: const InputDecoration(
+                            labelText: 'Título da videoaula',
+                            hintText: 'Ex.: Introdução à álgebra',
+                          ),
+                          onChanged: (_) => setState(() {}),
+                        ),
+                        const SizedBox(height: 8),
                         SizedBox(
                           height: 53,
                           child: FilledButton(
                             onPressed:
                                 _selectedFile == null ||
+                                    _titleController.text.trim().isEmpty ||
                                     _isPicking ||
                                     _isUploading
                                 ? null
                                 : _uploadVideo,
                             style: FilledButton.styleFrom(
-                              backgroundColor: const Color(0xFF01D0AF),
+                              backgroundColor: AppTheme.green,
                               foregroundColor: Colors.white,
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(15),

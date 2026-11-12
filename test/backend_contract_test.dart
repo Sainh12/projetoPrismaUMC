@@ -5,6 +5,11 @@ import 'package:projeto_base_prisma/domain/Aluno.dart';
 import 'package:projeto_base_prisma/domain/Professor.dart';
 import 'package:projeto_base_prisma/domain/User.dart';
 import 'package:projeto_base_prisma/domain/pergunta.dart';
+import 'package:projeto_base_prisma/domain/pergunta_rascunho.dart';
+import 'package:projeto_base_prisma/domain/quiz.dart';
+import 'package:projeto_base_prisma/domain/quiz_resumo.dart';
+import 'package:projeto_base_prisma/domain/quiz_tentativa.dart';
+import 'package:projeto_base_prisma/domain/video_resumo.dart';
 import 'package:projeto_base_prisma/application/view/api_response.dart';
 import 'package:projeto_base_prisma/infraestructure/controller/http/file_controller_api.dart';
 import 'package:projeto_base_prisma/infraestructure/controller/http/login_api.dart';
@@ -81,6 +86,17 @@ void main() {
         'cndb': 'CNDB-123',
         'materia': 'Matemática',
       });
+    });
+
+    test('video summaries use titles and support legacy video entries', () {
+      expect(
+        VideoResumo.fromJson({'name': 'aula.mp4', 'title': 'Frações'}).titulo,
+        'Frações',
+      );
+      expect(
+        VideoResumo.fromJson({'name': 'aula-antiga.mp4'}).titulo,
+        'aula-antiga.mp4',
+      );
     });
   });
 
@@ -432,92 +448,520 @@ void main() {
       sessions = SessionStore();
       professorToken = sessions.create('professor-1');
       studentToken = sessions.create('aluno-1');
-      api = QuizApi(sessions: sessions, repository: repository);
+      api = QuizApi(
+        sessions: sessions,
+        repository: repository,
+        isVideoOwnedByUser: (userId, videoName) async =>
+            videoName == '$userId-aula.mp4',
+        titleForVideo: (videoName) async => 'Título de $videoName',
+      );
+    });
+
+    test('professor creates and publishes a multiple-choice quiz', () async {
+      final created = await api.handler(
+        _quizRequest(
+          'POST',
+          '/quizzes',
+          token: professorToken,
+          body: {'video_id': 'professor-1-aula.mp4'},
+        ),
+      );
+      expect(created.statusCode, 201);
+      final id = jsonDecode(await created.readAsString())['id'] as int;
+
+      final savedDraft = await api.handler(
+        _quizRequest(
+          'PUT',
+          '/quizzes/$id',
+          token: professorToken,
+          body: {
+            'questoes': [
+              {
+                'enunciado': 'Quanto é 2 + 2?',
+                'alternativas': ['3', '4', '5', '6'],
+                'resposta_correta': '4',
+              },
+            ],
+          },
+        ),
+      );
+      expect(savedDraft.statusCode, 200);
+
+      final hiddenDraft = await api.handler(
+        _quizRequest('GET', '/quizzes/$id', token: studentToken),
+      );
+      expect(hiddenDraft.statusCode, 404);
+
+      final published = await api.handler(
+        _quizRequest('POST', '/quizzes/$id/publicar', token: professorToken),
+      );
+      expect(published.statusCode, 200);
+
+      final studentQuiz = await api.handler(
+        _quizRequest('GET', '/quizzes/$id', token: studentToken),
+      );
+      expect(studentQuiz.statusCode, 200);
+      final studentQuizData = jsonDecode(await studentQuiz.readAsString());
+      expect(
+        studentQuizData['questoes'].single['enunciado'],
+        'Quanto é 2 + 2?',
+      );
+      expect(studentQuizData['video_titulo'], 'Título de professor-1-aula.mp4');
+      expect(
+        studentQuizData['questoes'].single.containsKey('resposta_correta'),
+        isFalse,
+      );
+
+      final questionId = studentQuizData['questoes'].single['id'] as int;
+      final studentQuestion = await api.handler(
+        _quizRequest('GET', '/perguntas/$questionId', token: studentToken),
+      );
+      expect(studentQuestion.statusCode, 200);
+      final studentQuestionData = jsonDecode(
+        await studentQuestion.readAsString(),
+      );
+      expect(studentQuestionData['enunciado'], 'Quanto é 2 + 2?');
+      expect(studentQuestionData.containsKey('resposta_correta'), isFalse);
+
+      final answer = await api.handler(
+        _quizRequest(
+          'POST',
+          '/perguntas/$questionId/responder',
+          token: studentToken,
+          body: {'resposta': '4'},
+        ),
+      );
+      expect(jsonDecode(await answer.readAsString())['correta'], isTrue);
+
+      final teacherQuestions = await api.handler(
+        _quizRequest('GET', '/perguntas', token: professorToken),
+      );
+      final teacherData = jsonDecode(await teacherQuestions.readAsString());
+      expect(teacherData.single['resposta_correta'], '4');
     });
 
     test(
-      'professor creates questions and students answer without seeing the key',
+      'students can retry quizzes and see their newest score and history',
       () async {
         final created = await api.handler(
           _quizRequest(
             'POST',
-            '/perguntas',
+            '/quizzes',
             token: professorToken,
-            body: {'enunciado': 'Quanto é 2 + 2?', 'resposta_correta': '4'},
+            body: {'video_id': 'professor-1-aula.mp4'},
           ),
         );
-        expect(created.statusCode, 201);
-        final id = jsonDecode(await created.readAsString())['id'] as int;
-
-        final studentQuestion = await api.handler(
-          _quizRequest('GET', '/perguntas/$id', token: studentToken),
+        final quizId = jsonDecode(await created.readAsString())['id'] as int;
+        await api.handler(
+          _quizRequest(
+            'PUT',
+            '/quizzes/$quizId',
+            token: professorToken,
+            body: {
+              'questoes': [
+                {
+                  'enunciado': 'Questão 1',
+                  'alternativas': ['A', 'B', 'C', 'D'],
+                  'resposta_correta': 'A',
+                },
+                {
+                  'enunciado': 'Questão 2',
+                  'alternativas': ['Verdadeiro', 'Falso'],
+                  'resposta_correta': 'Verdadeiro',
+                },
+              ],
+            },
+          ),
         );
-        expect(studentQuestion.statusCode, 200);
-        final studentData = jsonDecode(await studentQuestion.readAsString());
-        expect(studentData['enunciado'], 'Quanto é 2 + 2?');
-        expect(studentData.containsKey('resposta_correta'), isFalse);
-
-        final answer = await api.handler(
+        await api.handler(
           _quizRequest(
             'POST',
-            '/perguntas/$id/responder',
-            token: studentToken,
-            body: {'resposta': ' 4 '},
+            '/quizzes/$quizId/publicar',
+            token: professorToken,
           ),
         );
-        expect(jsonDecode(await answer.readAsString())['correta'], isTrue);
 
-        final teacherQuestions = await api.handler(
-          _quizRequest('GET', '/perguntas', token: professorToken),
+        final studentQuizResponse = await api.handler(
+          _quizRequest('GET', '/quizzes/$quizId', token: studentToken),
         );
-        final teacherData = jsonDecode(await teacherQuestions.readAsString());
-        expect(teacherData.single['resposta_correta'], '4');
+        final studentQuiz =
+            jsonDecode(await studentQuizResponse.readAsString()) as Map;
+        final questions = studentQuiz['questoes'] as List;
+        expect(
+          questions.every(
+            (question) => !(question as Map).containsKey('resposta_correta'),
+          ),
+          isTrue,
+        );
+        final firstQuestionId = questions[0]['id'] as int;
+        final secondQuestionId = questions[1]['id'] as int;
+
+        final incomplete = await api.handler(
+          _quizRequest(
+            'POST',
+            '/quizzes/$quizId/tentativas',
+            token: studentToken,
+            body: {
+              'respostas': [
+                {'pergunta_id': firstQuestionId, 'resposta': 'A'},
+              ],
+            },
+          ),
+        );
+        expect(incomplete.statusCode, 400);
+
+        final duplicateQuestion = await api.handler(
+          _quizRequest(
+            'POST',
+            '/quizzes/$quizId/tentativas',
+            token: studentToken,
+            body: {
+              'respostas': [
+                {'pergunta_id': firstQuestionId, 'resposta': 'A'},
+                {'pergunta_id': firstQuestionId, 'resposta': 'B'},
+              ],
+            },
+          ),
+        );
+        expect(duplicateQuestion.statusCode, 400);
+
+        final firstAttempt = await api.handler(
+          _quizRequest(
+            'POST',
+            '/quizzes/$quizId/tentativas',
+            token: studentToken,
+            body: {
+              'respostas': [
+                {'pergunta_id': firstQuestionId, 'resposta': 'A'},
+                {'pergunta_id': secondQuestionId, 'resposta': 'Falso'},
+              ],
+            },
+          ),
+        );
+        expect(firstAttempt.statusCode, 201);
+        expect(
+          (jsonDecode(await firstAttempt.readAsString())
+              as Map)['tentativa']['nota'],
+          5.0,
+        );
+
+        final secondAttempt = await api.handler(
+          _quizRequest(
+            'POST',
+            '/quizzes/$quizId/tentativas',
+            token: studentToken,
+            body: {
+              'respostas': [
+                {'pergunta_id': firstQuestionId, 'resposta': 'A'},
+                {'pergunta_id': secondQuestionId, 'resposta': 'Verdadeiro'},
+              ],
+            },
+          ),
+        );
+        expect(secondAttempt.statusCode, 201);
+
+        final historyResponse = await api.handler(
+          _quizRequest(
+            'GET',
+            '/quizzes/$quizId/tentativas',
+            token: studentToken,
+          ),
+        );
+        final history = jsonDecode(await historyResponse.readAsString()) as Map;
+        final attempts = history['tentativas'] as List;
+        expect(attempts, hasLength(2));
+        expect(attempts.first['nota'], 10.0);
+        expect(attempts.last['nota'], 5.0);
+        expect(history['nota_mais_recente'], 10.0);
+
+        final otherStudentToken = sessions.create('aluno-2');
+        final otherStudentHistory = await api.handler(
+          _quizRequest(
+            'GET',
+            '/quizzes/$quizId/tentativas',
+            token: otherStudentToken,
+          ),
+        );
+        final otherHistory =
+            jsonDecode(await otherStudentHistory.readAsString()) as Map;
+        expect(otherHistory['tentativas'], isEmpty);
+        expect(otherHistory['nota_mais_recente'], isNull);
       },
     );
 
-    test(
-      'only teachers create questions and only students answer them',
-      () async {
-        final studentCreate = await api.handler(
-          _quizRequest(
-            'POST',
-            '/perguntas',
-            token: studentToken,
-            body: {'enunciado': 'Pergunta', 'resposta_correta': 'Resposta'},
-          ),
-        );
-        expect(studentCreate.statusCode, 403);
-
-        final professorAnswer = await api.handler(
-          _quizRequest(
-            'POST',
-            '/perguntas/1/responder',
-            token: professorToken,
-            body: {'resposta': 'Resposta'},
-          ),
-        );
-        expect(professorAnswer.statusCode, 403);
-
-        final missingAuth = await api.handler(
-          _quizRequest('GET', '/perguntas'),
-        );
-        expect(missingAuth.statusCode, 401);
-      },
-    );
-
-    test('rejects empty question data and reports missing questions', () async {
-      final invalid = await api.handler(
+    test('only students can access their quiz attempt history', () async {
+      final created = await api.handler(
         _quizRequest(
           'POST',
-          '/perguntas',
+          '/quizzes',
           token: professorToken,
-          body: {'enunciado': ' ', 'resposta_correta': 'Resposta'},
+          body: {'video_id': 'professor-1-aula.mp4'},
         ),
       );
-      expect(invalid.statusCode, 400);
+      final quizId = jsonDecode(await created.readAsString())['id'] as int;
+      await api.handler(
+        _quizRequest(
+          'PUT',
+          '/quizzes/$quizId',
+          token: professorToken,
+          body: {
+            'questoes': [
+              {
+                'enunciado': 'Questão',
+                'alternativas': ['A', 'B'],
+                'resposta_correta': 'A',
+              },
+            ],
+          },
+        ),
+      );
+      await api.handler(
+        _quizRequest(
+          'POST',
+          '/quizzes/$quizId/publicar',
+          token: professorToken,
+        ),
+      );
+
+      final forbidden = await api.handler(
+        _quizRequest(
+          'GET',
+          '/quizzes/$quizId/tentativas',
+          token: professorToken,
+        ),
+      );
+      expect(forbidden.statusCode, 403);
+    });
+
+    test('only professors can create and edit quizzes', () async {
+      final studentCreate = await api.handler(
+        _quizRequest(
+          'POST',
+          '/quizzes',
+          token: studentToken,
+          body: {'video_id': 'aluno-1-aula.mp4'},
+        ),
+      );
+      expect(studentCreate.statusCode, 403);
+
+      final foreignVideo = await api.handler(
+        _quizRequest(
+          'POST',
+          '/quizzes',
+          token: professorToken,
+          body: {'video_id': 'professor-2-aula.mp4'},
+        ),
+      );
+      expect(foreignVideo.statusCode, 404);
+
+      final professorDraft = await api.handler(
+        _quizRequest(
+          'POST',
+          '/quizzes',
+          token: professorToken,
+          body: {'video_id': 'professor-1-aula.mp4'},
+        ),
+      );
+      final quizId = jsonDecode(await professorDraft.readAsString())['id'];
+      final studentEdit = await api.handler(
+        _quizRequest(
+          'PUT',
+          '/quizzes/$quizId',
+          token: studentToken,
+          body: {'questoes': []},
+        ),
+      );
+      expect(studentEdit.statusCode, 403);
+
+      final professorAnswer = await api.handler(
+        _quizRequest(
+          'POST',
+          '/perguntas/1/responder',
+          token: professorToken,
+          body: {'resposta': 'Resposta'},
+        ),
+      );
+      expect(professorAnswer.statusCode, 403);
+
+      final missingAuth = await api.handler(_quizRequest('GET', '/perguntas'));
+      expect(missingAuth.statusCode, 401);
+    });
+
+    test('teachers see own drafts and published quizzes, students see published only', () async {
+      final ownDraftResponse = await api.handler(
+        _quizRequest(
+          'POST',
+          '/quizzes',
+          token: professorToken,
+          body: {'video_id': 'professor-1-aula.mp4'},
+        ),
+      );
+      final ownDraftId =
+          jsonDecode(await ownDraftResponse.readAsString())['id'] as int;
+      await api.handler(
+        _quizRequest(
+          'PUT',
+          '/quizzes/$ownDraftId',
+          token: professorToken,
+          body: {
+            'questoes': [
+              {
+                'enunciado': 'Questão de matemática',
+                'alternativas': ['A', 'B', 'C', 'D'],
+                'resposta_correta': 'A',
+              },
+            ],
+          },
+        ),
+      );
+
+      final otherProfessorToken = sessions.create('professor-2');
+      final otherDraftResponse = await api.handler(
+        _quizRequest(
+          'POST',
+          '/quizzes',
+          token: otherProfessorToken,
+          body: {'video_id': 'professor-2-aula.mp4'},
+        ),
+      );
+      final otherDraftId =
+          jsonDecode(await otherDraftResponse.readAsString())['id'] as int;
+      await api.handler(
+        _quizRequest(
+          'PUT',
+          '/quizzes/$otherDraftId',
+          token: otherProfessorToken,
+          body: {
+            'questoes': [
+              {
+                'enunciado': 'Questão de biologia',
+                'alternativas': ['A', 'B', 'C', 'D'],
+                'resposta_correta': 'B',
+              },
+            ],
+          },
+        ),
+      );
+      await api.handler(
+        _quizRequest(
+          'POST',
+          '/quizzes/$otherDraftId/publicar',
+          token: otherProfessorToken,
+        ),
+      );
+
+      final ownQuizzes = await api.handler(
+        _quizRequest('GET', '/quizzes', token: professorToken),
+      );
+      final ownQuizList =
+          jsonDecode(await ownQuizzes.readAsString())['quizzes'] as List;
+      expect(ownQuizList, hasLength(1));
+      expect(ownQuizList.single['titulo'], 'Matemática');
+      expect(
+        ownQuizList.single['video_titulo'],
+        'Título de professor-1-aula.mp4',
+      );
+      expect(ownQuizList.single['status'], 'draft');
+
+      final allQuizzes = await api.handler(
+        _quizRequest('GET', '/quizzes', token: studentToken),
+      );
+      final studentQuizList =
+          jsonDecode(await allQuizzes.readAsString())['quizzes'] as List;
+      expect(studentQuizList, hasLength(1));
+      expect(studentQuizList.single['titulo'], 'Biologia');
+
+      final allQuestions = await api.handler(
+        _quizRequest('GET', '/perguntas', token: studentToken),
+      );
+      final studentQuestions =
+          jsonDecode(await allQuestions.readAsString()) as List;
+      expect(studentQuestions, hasLength(1));
+      expect(
+        studentQuestions.every(
+          (question) => !(question as Map<String, dynamic>).containsKey(
+            'resposta_correta',
+          ),
+        ),
+        isTrue,
+      );
+
+      final otherQuizAsProfessor = await api.handler(
+        _quizRequest('GET', '/quizzes/$otherDraftId', token: professorToken),
+      );
+      expect(otherQuizAsProfessor.statusCode, 403);
+
+      final otherDeleteAsProfessor = await api.handler(
+        _quizRequest('DELETE', '/quizzes/$otherDraftId', token: professorToken),
+      );
+      expect(otherDeleteAsProfessor.statusCode, 403);
+    });
+
+    test('requires valid questions before publishing', () async {
+      final draft = await api.handler(
+        _quizRequest(
+          'POST',
+          '/quizzes',
+          token: professorToken,
+          body: {'video_id': 'professor-1-aula.mp4'},
+        ),
+      );
+      final id = jsonDecode(await draft.readAsString())['id'] as int;
+
+      final emptyPublish = await api.handler(
+        _quizRequest('POST', '/quizzes/$id/publicar', token: professorToken),
+      );
+      expect(emptyPublish.statusCode, 400);
+
+      await api.handler(
+        _quizRequest(
+          'PUT',
+          '/quizzes/$id',
+          token: professorToken,
+          body: {
+            'questoes': [
+              {
+                'enunciado': 'Pergunta',
+                'alternativas': ['A', 'A'],
+                'resposta_correta': 'C',
+              },
+            ],
+          },
+        ),
+      );
+      final invalidPublish = await api.handler(
+        _quizRequest('POST', '/quizzes/$id/publicar', token: professorToken),
+      );
+      expect(invalidPublish.statusCode, 400);
 
       final missing = await api.handler(
-        _quizRequest('GET', '/perguntas/999', token: studentToken),
+        _quizRequest('GET', '/quizzes/999', token: studentToken),
+      );
+      expect(missing.statusCode, 404);
+    });
+
+    test('deletes only the owner quiz and cascades its questions', () async {
+      final draft = await api.handler(
+        _quizRequest(
+          'POST',
+          '/quizzes',
+          token: professorToken,
+          body: {'video_id': 'professor-1-aula.mp4'},
+        ),
+      );
+      final id = jsonDecode(await draft.readAsString())['id'] as int;
+      final otherProfessorToken = sessions.create('professor-2');
+      final forbiddenDelete = await api.handler(
+        _quizRequest('DELETE', '/quizzes/$id', token: otherProfessorToken),
+      );
+      expect(forbiddenDelete.statusCode, 403);
+
+      final deleted = await api.handler(
+        _quizRequest('DELETE', '/quizzes/$id', token: professorToken),
+      );
+      expect(deleted.statusCode, 200);
+      final missing = await api.handler(
+        _quizRequest('GET', '/quizzes/$id', token: professorToken),
       );
       expect(missing.statusCode, 404);
     });
@@ -527,7 +971,7 @@ void main() {
       usersApi.router.mount('/api/quiz/', api.handler);
 
       final response = await usersApi.handler(
-        _quizRequest('GET', '/api/quiz/perguntas', token: studentToken),
+        _quizRequest('GET', '/api/quiz/quizzes', token: studentToken),
       );
 
       expect(response.statusCode, 200);
@@ -606,6 +1050,39 @@ void main() {
       final data = jsonDecode(await response.readAsString()) as Map;
       final videos = data['videos'] as List;
       expect(videos.single['name'], savedName);
+      expect(videos.single['title'], 'Aula de teste');
+    });
+
+    test('requires a title and limits its length on upload', () async {
+      final controller = FileController(
+        sessions: sessions,
+        isProfessor: (userId) async => userId == 'owner-id',
+        uploadDirectory: uploadDirectory,
+      );
+
+      final missingTitle = await controller.router.call(
+        _multipartRequest('video bytes', token: token, title: ''),
+      );
+      expect(missingTitle.statusCode, 400);
+      expect(
+        await uploadDirectory
+            .list(recursive: true)
+            .where((entity) => entity is File)
+            .toList(),
+        isEmpty,
+      );
+
+      final longTitle = await controller.router.call(
+        _multipartRequest('video bytes', token: token, title: 'T' * 121),
+      );
+      expect(longTitle.statusCode, 400);
+      expect(
+        await uploadDirectory
+            .list(recursive: true)
+            .where((entity) => entity is File)
+            .toList(),
+        isEmpty,
+      );
     });
 
     test('lists only the authenticated professor videos', () async {
@@ -635,6 +1112,7 @@ void main() {
       final videos =
           (jsonDecode(await response.readAsString()) as Map)['videos'] as List;
       expect(videos.map((video) => video['name']), [ownerVideo]);
+      expect(videos.single['title'], 'Aula de teste');
     });
 
     test('restricts personal video listing to professors', () async {
@@ -714,6 +1192,15 @@ void main() {
         );
         expect(upload.statusCode, 201);
         final savedName = jsonDecode(await upload.readAsString())['name'];
+
+        final titleMetadata = await controller.router.call(
+          Request(
+            'GET',
+            Uri.parse('http://localhost/api/video/$savedName.title'),
+            headers: {'authorization': 'Bearer $token'},
+          ),
+        );
+        expect(titleMetadata.statusCode, 404);
 
         final range = await controller.router.call(
           Request(
@@ -811,7 +1298,11 @@ Request _quizRequest(
   body: body == null ? null : jsonEncode(body),
 );
 
-Request _multipartRequest(String content, {String? token}) => Request(
+Request _multipartRequest(
+  String content, {
+  String? token,
+  String title = 'Aula de teste',
+}) => Request(
   'POST',
   Uri.parse('http://localhost/api/upload'),
   headers: {
@@ -823,6 +1314,9 @@ Request _multipartRequest(String content, {String? token}) => Request(
       'content-disposition: form-data; name="file"; filename="video.mp4"\r\n'
       'content-type: video/mp4\r\n\r\n'
       '$content'
+      '\r\n--prisma-boundary\r\n'
+      'content-disposition: form-data; name="title"\r\n\r\n'
+      '$title'
       '\r\n--prisma-boundary--\r\n',
 );
 
@@ -905,25 +1399,85 @@ class _MemoryUserRepository implements UserRepository {
 class _MemoryQuizRepository implements QuizRepository {
   final Map<String, String> roles = {
     'professor-1': 'professor',
+    'professor-2': 'professor',
     'aluno-1': 'aluno',
+    'aluno-2': 'aluno',
   };
+  final Map<String, String> subjects = {
+    'professor-1': 'Matemática',
+    'professor-2': 'Biologia',
+  };
+  final Map<int, Quiz> quizzes = {};
   final List<Pergunta> questions = [];
-  int _nextId = 1;
+  final List<QuizTentativa> attempts = [];
+  int _nextQuizId = 1;
+  int _nextQuestionId = 1;
+  int _nextAttemptId = 1;
 
   @override
   Future<String?> tipoUsuario(String userId) async => roles[userId];
 
   @override
-  Future<int> adicionarPergunta(
+  Future<String?> materiaProfessor(String userId) async => subjects[userId];
+
+  @override
+  Future<int> criarQuiz(
     String professorId,
-    String enunciado,
-    String respostaCorreta,
+    String videoId,
+    String titulo,
   ) async {
-    final id = _nextId++;
-    questions.add(
-      Pergunta(id: id, enunciado: enunciado, respostaCorreta: respostaCorreta),
+    final existing = quizzes.values.where(
+      (quiz) => quiz.professorId == professorId && quiz.videoId == videoId,
+    );
+    if (existing.isNotEmpty) return existing.first.id;
+    final id = _nextQuizId++;
+    quizzes[id] = Quiz(
+      id: id,
+      professorId: professorId,
+      videoId: videoId,
+      titulo: titulo,
+      status: 'draft',
     );
     return id;
+  }
+
+  @override
+  Future<Quiz?> buscarQuiz(int id) async => quizzes[id];
+
+  @override
+  Future<List<QuizResumo>> listarQuizzes({
+    String? professorId,
+    required bool publicadosApenas,
+  }) async {
+    return [
+      for (final quiz in quizzes.values)
+        if ((professorId == null || quiz.professorId == professorId) &&
+            (!publicadosApenas || quiz.status == 'published'))
+          QuizResumo(
+            id: quiz.id,
+            videoId: quiz.videoId,
+            titulo: quiz.titulo,
+            status: quiz.status,
+            quantidadeQuestoes: questions
+                .where((question) => question.quizId == quiz.id)
+                .length,
+          ),
+    ];
+  }
+
+  @override
+  Future<List<Pergunta>> listarPerguntas({
+    int? quizId,
+    String? professorId,
+    bool publicadosApenas = false,
+  }) async {
+    return questions.where((question) {
+      final quiz = quizzes[question.quizId];
+      return quiz != null &&
+          (quizId == null || quiz.id == quizId) &&
+          (professorId == null || quiz.professorId == professorId) &&
+          (!publicadosApenas || quiz.status == 'published');
+    }).toList();
   }
 
   @override
@@ -935,6 +1489,89 @@ class _MemoryQuizRepository implements QuizRepository {
   }
 
   @override
-  Future<List<Pergunta>> listarPerguntas() async =>
-      List.unmodifiable(questions);
+  Future<void> salvarPerguntas(
+    int quizId,
+    String professorId,
+    List<PerguntaRascunho> questionsToSave,
+  ) async {
+    final quiz = quizzes[quizId];
+    if (quiz == null || quiz.professorId != professorId) return;
+    questions.removeWhere((question) => question.quizId == quizId);
+    for (final draft in questionsToSave) {
+      questions.add(
+        Pergunta(
+          id: _nextQuestionId++,
+          quizId: quizId,
+          professorId: professorId,
+          enunciado: draft.enunciado,
+          alternativas: List.unmodifiable(draft.alternativas),
+          respostaCorreta: draft.respostaCorreta,
+        ),
+      );
+    }
+    quizzes[quizId] = Quiz(
+      id: quiz.id,
+      professorId: quiz.professorId,
+      videoId: quiz.videoId,
+      titulo: quiz.titulo,
+      status: 'draft',
+    );
+  }
+
+  @override
+  Future<int> publicarQuiz(int id, String professorId) async {
+    final quiz = quizzes[id];
+    if (quiz == null || quiz.professorId != professorId) return 0;
+    quizzes[id] = Quiz(
+      id: quiz.id,
+      professorId: quiz.professorId,
+      videoId: quiz.videoId,
+      titulo: quiz.titulo,
+      status: 'published',
+    );
+    return 1;
+  }
+
+  @override
+  Future<int> excluirQuiz(int id, String professorId) async {
+    final quiz = quizzes[id];
+    if (quiz == null || quiz.professorId != professorId) return 0;
+    quizzes.remove(id);
+    questions.removeWhere((question) => question.quizId == id);
+    attempts.removeWhere((attempt) => attempt.quizId == id);
+    return 1;
+  }
+
+  @override
+  Future<QuizTentativa> registrarTentativa({
+    required int quizId,
+    required String alunoId,
+    required int acertos,
+    required int totalQuestoes,
+    required double nota,
+  }) async {
+    final attempt = QuizTentativa(
+      id: _nextAttemptId++,
+      quizId: quizId,
+      alunoId: alunoId,
+      nota: nota,
+      acertos: acertos,
+      totalQuestoes: totalQuestoes,
+      realizadaEm: DateTime.now().toUtc(),
+    );
+    attempts.add(attempt);
+    return attempt;
+  }
+
+  @override
+  Future<List<QuizTentativa>> listarTentativas(
+    int quizId,
+    String alunoId,
+  ) async =>
+      attempts
+          .where(
+            (attempt) => attempt.quizId == quizId && attempt.alunoId == alunoId,
+          )
+          .toList()
+        ..sort((left, right) => right.id.compareTo(left.id));
 }

@@ -7,6 +7,7 @@ import 'package:projeto_base_prisma/infraestructure/controller/http/login_api.da
 import 'package:projeto_base_prisma/infraestructure/repository/gerenciadoBancoDeDados.dart';
 import 'package:projeto_base_prisma/infraestructure/repository/app_database_factory.dart';
 import 'package:projeto_base_prisma/infraestructure/controller/http/quiz_api.dart';
+import 'package:projeto_base_prisma/infraestructure/repository/quiz_repository.dart';
 import 'package:projeto_base_prisma/infraestructure/security/session_store.dart';
 import 'package:sqflite/sqflite.dart' as sqflite;
 
@@ -26,7 +27,12 @@ Future<void> main() async {
     sessions: sessions,
     onUserDeleted: fileApi.deleteUserFiles,
   );
-  final quizApi = QuizApi(sessions: sessions);
+  final quizApi = QuizApi(
+    sessions: sessions,
+    isVideoOwnedByUser: fileApi.isVideoOwnedByUser,
+    titleForVideo: fileApi.titleForVideo,
+    repository: SqliteQuizRepository(),
+  );
   loginApi.router.mount('/api/quiz/', quizApi.handler);
   final loginServer = await loginApi.start();
 

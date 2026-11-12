@@ -26,15 +26,16 @@ dart run bin/dev_api.dart
 **Terminal 2 — aplicação Web**
 
 ```shell
-flutter run -d chrome -t lib/main_web.dart --web-port 5000
+flutter run -d chrome -t lib/main_web.dart
 ```
 
-Abra `http://localhost:5000`, cadastre uma conta pela tela e faça login. Não há
+O Chrome abrirá automaticamente, cadastre uma conta pela tela e faça login. Não há
 conta demonstrativa pré-criada.
 
 ## Persistência e sessões
 
-- Usuários, credenciais com hash e perguntas são armazenados em SQLite.
+- Usuários, credenciais com hash, perguntas, tentativas e notas são armazenados
+  em SQLite.
 - Vídeos são armazenados como arquivos em `data/uploads/`, organizados por
   professor; os bytes não ficam dentro do SQLite.
 - O feed geral mostra vídeos compartilhados. A aba “Seus vídeos” lista apenas
@@ -70,14 +71,29 @@ As rotas protegidas exigem `Authorization: Bearer <token>` obtido no login.
 - `POST /api/users/acesso` — autentica e cria uma sessão.
 - `POST /api/users/logout` — encerra a sessão atual.
 - `/api/users/...` — consulta, atualiza ou exclui a conta autenticada.
-- `POST /api/upload` — envia um vídeo; apenas professores.
-- `GET /api/videos` — lista vídeos publicados para o feed compartilhado.
-- `GET /api/my-videos` — lista os vídeos do professor autenticado.
+- `POST /api/upload` — envia os campos multipart `video` e `title` (obrigatório,
+  até 120 caracteres); apenas professores.
+- `GET /api/videos` — lista vídeos publicados para o feed compartilhado,
+  incluindo nome técnico, título e data de envio.
+- `GET /api/my-videos` — lista os vídeos do professor autenticado, incluindo
+  título.
 - `GET /api/video/<nome>` — transmite um vídeo, com suporte a `Range`.
 - `DELETE /api/video/<nome>` — exclui um vídeo do professor autenticado.
-- `POST /api/quiz/perguntas` — cria uma pergunta; apenas professores.
-- `GET /api/quiz/perguntas` e `GET /api/quiz/perguntas/<id>` — lista perguntas.
-- `POST /api/quiz/perguntas/<id>/responder` — responde; apenas alunos.
+- `GET /api/quiz/quizzes` — lista quizzes próprios para professores e quizzes
+  publicados para alunos, com o título da videoaula.
+- `POST /api/quiz/quizzes` — cria um rascunho vinculado a uma videoaula própria;
+  apenas professores.
+- `GET`, `PUT` e `DELETE /api/quiz/quizzes/<id>` — consulta, salva ou exclui
+  quizzes próprios; apenas professores para alterações.
+- `POST /api/quiz/quizzes/<id>/publicar` — publica um quiz próprio; apenas
+  professores.
+- `GET /api/quiz/quizzes/<id>/tentativas` — consulta o histórico e a nota mais
+  recente do aluno autenticado.
+- `POST /api/quiz/quizzes/<id>/tentativas` — envia uma tentativa completa; cada
+  questão vale a mesma parte de uma nota de 0 a 10. Novas tentativas são
+  permitidas, mantêm o histórico e atualizam a nota mais recente.
+- `POST /api/quiz/perguntas/<id>/responder` — responde uma questão; apenas
+  alunos.
 
 Detalhes adicionais sobre validação, limites, armazenamento e pendências estão
 em [test/analise_apis_e_persistencia.md](test/analise_apis_e_persistencia.md).

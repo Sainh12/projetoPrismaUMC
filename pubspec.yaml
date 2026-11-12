@@ -31,6 +31,12 @@ flutter:
   assets:
     - lib/application/icons/prisma_logo.png
     - lib/application/icons/firefly_video.mp4
+    - assets/fonts/LICENSE.txt
+  fonts:
+    - family: Crushed
+      fonts:
+        - asset: assets/fonts/Crushed-Regular.ttf
+          weight: 400
 dev_dependencies:
   lints: ^6.0.0
   test: ^1.25.6

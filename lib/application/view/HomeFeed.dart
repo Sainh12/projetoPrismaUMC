@@ -1,9 +1,15 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+import 'package:projeto_base_prisma/application/theme/app_theme.dart';
 import 'package:projeto_base_prisma/application/view/CadastroVideoPage.dart';
 import 'package:projeto_base_prisma/application/view/PerfilPage.dart';
+import 'package:projeto_base_prisma/application/view/quiz_attempt_page.dart';
+import 'package:projeto_base_prisma/application/view/QuizEditorPage.dart';
+import 'package:projeto_base_prisma/domain/quiz_resumo.dart';
+import 'package:projeto_base_prisma/domain/video_resumo.dart';
 import 'package:projeto_base_prisma/application/view/video_source_stub.dart'
     if (dart.library.js_interop) 'package:projeto_base_prisma/application/view/video_source_web.dart'
     as video_source;
@@ -31,16 +37,23 @@ class _HomeFeedPageState extends State<HomeFeedPage> {
   late Map<String, dynamic> _profile;
   List<String> _videos = [];
   List<String> _myVideos = [];
+  Map<String, String> _videoTitles = {};
+  Map<String, String> _myVideoTitles = {};
+  List<QuizResumo> _quizzes = [];
+  String _quizFilter = '';
   bool _isLoadingVideos = true;
   bool _isLoadingMyVideos = false;
+  bool _isLoadingQuizzes = true;
   bool _isRedirectingForExpiredSession = false;
   final Set<String> _deletingVideos = {};
   String? _videoLoadError;
   String? _myVideoLoadError;
+  String? _quizLoadError;
 
   static const _videosUrl = 'http://localhost:8081/api/videos';
   static const _myVideosUrl = 'http://localhost:8081/api/my-videos';
   static const _videoUrl = 'http://localhost:8081/api/video';
+  static const _quizzesUrl = 'http://localhost:8080/api/quiz/quizzes';
 
   static const _titles = ['AULAS PARA VOCÊ', 'QUIZ', 'PERFIL', 'SEUS VÍDEOS'];
 
@@ -49,7 +62,44 @@ class _HomeFeedPageState extends State<HomeFeedPage> {
     super.initState();
     _profile = Map<String, dynamic>.from(widget.profile);
     unawaited(_loadVideos());
+    unawaited(_loadQuizzes());
     if (_isProfessor) unawaited(_loadMyVideos());
+  }
+
+  Future<void> _showQuizFilter() async {
+    final controller = TextEditingController(text: _quizFilter);
+    final filter = await showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Filtrar quizzes'),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          decoration: const InputDecoration(
+            labelText: 'Matéria ou videoaula',
+            prefixIcon: Icon(Icons.search),
+          ),
+          onSubmitted: (value) => Navigator.of(context).pop(value.trim()),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(null),
+            child: const Text('Cancelar'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(''),
+            child: const Text('Limpar'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(controller.text.trim()),
+            child: const Text('Aplicar'),
+          ),
+        ],
+      ),
+    );
+    controller.dispose();
+    if (filter == null || !mounted) return;
+    setState(() => _quizFilter = filter);
   }
 
   bool get _isProfessor => _profile['tipo_usuario'] == 'professor';
@@ -99,11 +149,13 @@ class _HomeFeedPageState extends State<HomeFeedPage> {
       }
       final videos = videosData
           .whereType<Map<String, dynamic>>()
-          .map((video) => video['name'])
-          .whereType<String>()
+          .map(VideoResumo.fromJson)
           .toList();
       if (!mounted) return;
-      setState(() => _videos = videos);
+      setState(() {
+        _videos = videos.map((video) => video.nome).toList();
+        _videoTitles = {for (final video in videos) video.nome: video.titulo};
+      });
     } catch (error) {
       if (!mounted) return;
       setState(
@@ -112,6 +164,44 @@ class _HomeFeedPageState extends State<HomeFeedPage> {
       );
     } finally {
       if (mounted) setState(() => _isLoadingVideos = false);
+    }
+  }
+
+  Future<void> _loadQuizzes() async {
+    setState(() {
+      _isLoadingQuizzes = true;
+      _quizLoadError = null;
+    });
+    try {
+      final response = await http
+          .get(
+            Uri.parse(_quizzesUrl),
+            headers: {'Authorization': 'Bearer ${widget.accessToken}'},
+          )
+          .timeout(const Duration(seconds: 20));
+      if (_handleUnauthorized(response)) return;
+      final data = decodeApiResponseObject(
+        response.body,
+        statusCode: response.statusCode,
+        fallbackMessage: 'Não foi possível carregar os quizzes.',
+      );
+      final quizzesData = data['quizzes'];
+      if (quizzesData is! List) {
+        throw Exception('A API retornou uma lista de quizzes inválida.');
+      }
+      final quizzes = quizzesData
+          .whereType<Map<String, dynamic>>()
+          .map(QuizResumo.fromJson)
+          .toList();
+      if (!mounted) return;
+      setState(() => _quizzes = quizzes);
+    } catch (error) {
+      if (!mounted) return;
+      setState(
+        () => _quizLoadError = error.toString().replaceFirst('Exception: ', ''),
+      );
+    } finally {
+      if (mounted) setState(() => _isLoadingQuizzes = false);
     }
   }
 
@@ -140,11 +230,13 @@ class _HomeFeedPageState extends State<HomeFeedPage> {
       }
       final videos = videosData
           .whereType<Map<String, dynamic>>()
-          .map((video) => video['name'])
-          .whereType<String>()
+          .map(VideoResumo.fromJson)
           .toList();
       if (!mounted) return;
-      setState(() => _myVideos = videos);
+      setState(() {
+        _myVideos = videos.map((video) => video.nome).toList();
+        _myVideoTitles = {for (final video in videos) video.nome: video.titulo};
+      });
     } catch (error) {
       if (!mounted) return;
       setState(
@@ -177,6 +269,8 @@ class _HomeFeedPageState extends State<HomeFeedPage> {
       setState(() {
         _myVideos = _myVideos.where((name) => name != videoName).toList();
         _videos = _videos.where((name) => name != videoName).toList();
+        _myVideoTitles.remove(videoName);
+        _videoTitles.remove(videoName);
       });
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Vídeo excluído com sucesso.')),
@@ -196,21 +290,135 @@ class _HomeFeedPageState extends State<HomeFeedPage> {
     }
   }
 
+  Future<void> _createQuizForVideo(String videoName) async {
+    try {
+      final response = await http
+          .post(
+            Uri.parse(_quizzesUrl),
+            headers: {
+              'Authorization': 'Bearer ${widget.accessToken}',
+              'Content-Type': 'application/json',
+            },
+            body: jsonEncode({'video_id': videoName}),
+          )
+          .timeout(const Duration(seconds: 20));
+      if (_handleUnauthorized(response)) return;
+      final data = decodeApiResponseObject(
+        response.body,
+        statusCode: response.statusCode,
+        fallbackMessage: 'Não foi possível criar o rascunho do quiz.',
+      );
+      final quizId = data['id'];
+      if (quizId is! int) {
+        throw Exception('A API não retornou o identificador do quiz.');
+      }
+      await _openQuizEditor(quizId);
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'A videoaula foi enviada, mas o rascunho do quiz não pôde ser criado: '
+            '${error.toString().replaceFirst('Exception: ', '')}',
+          ),
+        ),
+      );
+    }
+  }
+
+  Future<void> _openQuizEditor(int quizId) async {
+    await Navigator.of(context).push<bool>(
+      MaterialPageRoute<bool>(
+        builder: (_) =>
+            QuizEditorPage(accessToken: widget.accessToken, quizId: quizId),
+      ),
+    );
+    if (mounted) await _loadQuizzes();
+  }
+
+  Future<void> _editQuiz(QuizResumo quiz) => _openQuizEditor(quiz.id);
+
+  Future<void> _takeQuiz(QuizResumo quiz) async {
+    await Navigator.of(context).push<void>(
+      MaterialPageRoute<void>(
+        builder: (_) =>
+            QuizAttemptPage(accessToken: widget.accessToken, quizId: quiz.id),
+      ),
+    );
+  }
+
+  Future<void> _deleteQuiz(QuizResumo quiz) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Excluir quiz?'),
+        content: Text(
+          'O quiz "${quiz.titulo}" e todas as suas questões serão excluídos '
+          'permanentemente. Essa ação não pode ser desfeita.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            style: FilledButton.styleFrom(backgroundColor: Colors.red),
+            child: const Text('Excluir quiz'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+
+    try {
+      final response = await http
+          .delete(
+            Uri.parse('$_quizzesUrl/${quiz.id}'),
+            headers: {'Authorization': 'Bearer ${widget.accessToken}'},
+          )
+          .timeout(const Duration(seconds: 20));
+      if (_handleUnauthorized(response)) return;
+      decodeApiResponseObject(
+        response.body,
+        statusCode: response.statusCode,
+        fallbackMessage: 'Não foi possível excluir o quiz.',
+      );
+      if (!mounted) return;
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('Quiz excluído.')));
+      await _loadQuizzes();
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Não foi possível excluir o quiz: '
+            '${error.toString().replaceFirst('Exception: ', '')}',
+          ),
+        ),
+      );
+    }
+  }
+
   Future<void> _openVideoRegistration() async {
-    final uploadedName = await Navigator.of(context).push<String>(
-      MaterialPageRoute<String>(
+    final uploadedVideo = await Navigator.of(context).push<VideoResumo>(
+      MaterialPageRoute<VideoResumo>(
         builder: (_) => CadastroVideoPage(accessToken: widget.accessToken),
       ),
     );
-    if (!mounted || uploadedName == null) return;
+    if (!mounted || uploadedVideo == null) return;
     setState(() {
       _videos = [
-        uploadedName,
-        ..._videos.where((name) => name != uploadedName),
+        uploadedVideo.nome,
+        ..._videos.where((name) => name != uploadedVideo.nome),
       ];
+      _videoTitles[uploadedVideo.nome] = uploadedVideo.titulo;
+      _myVideoTitles[uploadedVideo.nome] = uploadedVideo.titulo;
     });
     unawaited(_loadVideos());
     unawaited(_loadMyVideos());
+    await _createQuizForVideo(uploadedVideo.nome);
   }
 
   Widget _buildContent() {
@@ -219,6 +427,7 @@ class _HomeFeedPageState extends State<HomeFeedPage> {
         key: ValueKey(_videos),
         accessToken: widget.accessToken,
         videos: _videos,
+        videoTitles: _videoTitles,
         isLoading: _isLoadingVideos,
         loadError: _videoLoadError,
         onRetry: _loadVideos,
@@ -234,36 +443,39 @@ class _HomeFeedPageState extends State<HomeFeedPage> {
       );
     }
 
+    if (_selectedTab == 1) {
+      return _QuizListPage(
+        quizzes: _quizzes,
+        isProfessor: _isProfessor,
+        isLoading: _isLoadingQuizzes,
+        loadError: _quizLoadError,
+        filter: _quizFilter,
+        onClearFilter: () => setState(() => _quizFilter = ''),
+        onRetry: _loadQuizzes,
+        onEdit: _editQuiz,
+        onDelete: _deleteQuiz,
+        onTakeQuiz: _takeQuiz,
+      );
+    }
+
     if (_selectedTab == 3 && _isProfessor) {
       return _MyVideosPage(
         accessToken: widget.accessToken,
         videos: _myVideos,
+        videoTitles: _myVideoTitles,
+        quizzes: _quizzes,
         isLoading: _isLoadingMyVideos,
         loadError: _myVideoLoadError,
         deletingVideos: _deletingVideos,
         onRetry: _loadMyVideos,
         onAddVideo: _openVideoRegistration,
         onDeleteVideo: _deleteMyVideo,
+        onCreateQuiz: _createQuizForVideo,
+        onEditQuiz: _editQuiz,
       );
     }
 
-    return Container(
-      width: double.infinity,
-      color: const Color(0xB2D9D9D9),
-      alignment: Alignment.center,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(Icons.quiz_outlined, size: 56, color: const Color(0xFF0D1F43)),
-          const SizedBox(height: 12),
-          const Text(
-            'A lista de quizzes virá em breve.',
-            textAlign: TextAlign.center,
-            style: TextStyle(color: Colors.black, fontSize: 18),
-          ),
-        ],
-      ),
-    );
+    return const SizedBox.shrink();
   }
 
   Widget _buildNavigationButton({
@@ -288,7 +500,7 @@ class _HomeFeedPageState extends State<HomeFeedPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: _selectedTab == 0 ? Colors.black : Colors.white,
+      backgroundColor: _selectedTab == 0 ? Colors.black : AppTheme.background,
       body: _selectedTab == 0
           ? SafeArea(
               child: Stack(
@@ -351,16 +563,40 @@ class _HomeFeedPageState extends State<HomeFeedPage> {
                     color: const Color(0xFF0D1F43),
                     padding: const EdgeInsets.symmetric(horizontal: 20),
                     alignment: Alignment.centerLeft,
-                    child: Text(
-                      _titles[_selectedTab],
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: MediaQuery.sizeOf(context).width < 340
-                            ? 18
-                            : 24,
-                        fontWeight: FontWeight.w600,
-                      ),
-                      overflow: TextOverflow.ellipsis,
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            _titles[_selectedTab],
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontFamily: AppTheme.displayFontFamily,
+                              fontSize: MediaQuery.sizeOf(context).width < 340
+                                  ? 18
+                                  : 24,
+                              fontWeight: FontWeight.w600,
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        if (_selectedTab == 1)
+                          TextButton.icon(
+                            onPressed: _showQuizFilter,
+                            icon: const Icon(Icons.filter_list, size: 18),
+                            label: const Text('Filtrar'),
+                            style: TextButton.styleFrom(
+                              foregroundColor: Colors.black,
+                              backgroundColor: const Color(0xFF01D0AF),
+                              minimumSize: const Size(103, 34),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                              ),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(15),
+                              ),
+                            ),
+                          ),
+                      ],
                     ),
                   ),
                   Expanded(child: _buildContent()),
@@ -411,26 +647,269 @@ class _HomeFeedPageState extends State<HomeFeedPage> {
   }
 }
 
+class _QuizListPage extends StatelessWidget {
+  const _QuizListPage({
+    required this.quizzes,
+    required this.isProfessor,
+    required this.isLoading,
+    required this.loadError,
+    required this.filter,
+    required this.onClearFilter,
+    required this.onRetry,
+    required this.onEdit,
+    required this.onDelete,
+    required this.onTakeQuiz,
+  });
+
+  final List<QuizResumo> quizzes;
+  final bool isProfessor;
+  final bool isLoading;
+  final String? loadError;
+  final String filter;
+  final VoidCallback onClearFilter;
+  final Future<void> Function() onRetry;
+  final Future<void> Function(QuizResumo quiz) onEdit;
+  final Future<void> Function(QuizResumo quiz) onDelete;
+  final Future<void> Function(QuizResumo quiz) onTakeQuiz;
+
+  @override
+  Widget build(BuildContext context) {
+    if (isLoading) {
+      return const Center(
+        child: CircularProgressIndicator(color: AppTheme.navy),
+      );
+    }
+
+    if (loadError != null) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                loadError!,
+                textAlign: TextAlign.center,
+                style: const TextStyle(color: Colors.black87),
+              ),
+              const SizedBox(height: 12),
+              FilledButton(
+                onPressed: onRetry,
+                child: const Text('Tentar novamente'),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    if (quizzes.isEmpty) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(
+                Icons.quiz_outlined,
+                size: 56,
+                color: Color(0xFF0D1F43),
+              ),
+              const SizedBox(height: 12),
+              Text(
+                isProfessor
+                    ? 'Você ainda não possui quizzes.'
+                    : 'Ainda não há quizzes disponíveis.',
+                textAlign: TextAlign.center,
+                style: const TextStyle(color: Colors.black87, fontSize: 18),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    final normalizedFilter = filter.trim().toLowerCase();
+    final visibleQuizzes = quizzes.where((quiz) {
+      if (normalizedFilter.isEmpty) return true;
+      final searchableText =
+          '${quiz.titulo} ${quiz.videoTitulo ?? quiz.videoId}'.toLowerCase();
+      return searchableText.contains(normalizedFilter);
+    }).toList();
+    if (visibleQuizzes.isEmpty) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.search_off, size: 56, color: Color(0xFF0D1F43)),
+              const SizedBox(height: 12),
+              Text(
+                'Nenhum quiz encontrado para "$filter".',
+                textAlign: TextAlign.center,
+                style: const TextStyle(color: Colors.black87, fontSize: 18),
+              ),
+              const SizedBox(height: 12),
+              TextButton(
+                onPressed: onClearFilter,
+                child: const Text('Limpar filtro'),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    return RefreshIndicator(
+      onRefresh: onRetry,
+      color: AppTheme.navy,
+      child: ListView.separated(
+        padding: const EdgeInsets.fromLTRB(20, 32, 20, 24),
+        itemCount: visibleQuizzes.length,
+        separatorBuilder: (_, _) => const SizedBox(height: 18),
+        itemBuilder: (context, index) {
+          final quiz = visibleQuizzes[index];
+          return Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 420),
+              child: Card(
+                color: Colors.white,
+                elevation: 2,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.all(18),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Text(
+                        quiz.titulo,
+                        style: const TextStyle(
+                          color: Colors.black,
+                          fontFamily: AppTheme.displayFontFamily,
+                          fontSize: 20,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 0.5,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        '${quiz.quantidadeQuestoes} '
+                        '${quiz.quantidadeQuestoes == 1 ? 'questão' : 'questões'}',
+                        style: const TextStyle(
+                          color: Color(0xFF828181),
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      if (!quiz.videoId.startsWith('legado:')) ...[
+                        const SizedBox(height: 6),
+                        Text(
+                          'Videoaula: ${quiz.videoTitulo ?? quiz.videoId}',
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            color: Color(0xFF828181),
+                            fontSize: 14,
+                          ),
+                        ),
+                      ],
+                      if (isProfessor) ...[
+                        const SizedBox(height: 8),
+                        Text(
+                          quiz.status == 'published'
+                              ? 'Publicado'
+                              : 'Rascunho — só você pode ver',
+                          style: TextStyle(
+                            color: quiz.status == 'published'
+                                ? Colors.green.shade700
+                                : Colors.orange.shade800,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: OutlinedButton.icon(
+                                onPressed: () => onEdit(quiz),
+                                icon: const Icon(Icons.edit_outlined),
+                                label: const Text('Editar'),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            IconButton(
+                              onPressed: () => onDelete(quiz),
+                              tooltip: 'Excluir quiz',
+                              color: Colors.red,
+                              icon: const Icon(Icons.delete_outline),
+                            ),
+                          ],
+                        ),
+                      ] else ...[
+                        const SizedBox(height: 14),
+                        SizedBox(
+                          height: 53,
+                          child: FilledButton(
+                            onPressed: () => onTakeQuiz(quiz),
+                            style: FilledButton.styleFrom(
+                              backgroundColor: const Color(0xFF01D0AF),
+                              foregroundColor: Colors.white,
+                              textStyle: const TextStyle(
+                                fontSize: 20,
+                                fontWeight: FontWeight.w700,
+                                letterSpacing: 1,
+                              ),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(15),
+                              ),
+                            ),
+                            child: const Text('Iniciar'),
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+}
+
 class _MyVideosPage extends StatelessWidget {
   const _MyVideosPage({
     required this.accessToken,
     required this.videos,
+    required this.videoTitles,
+    required this.quizzes,
     required this.isLoading,
     required this.loadError,
     required this.deletingVideos,
     required this.onRetry,
     required this.onAddVideo,
     required this.onDeleteVideo,
+    required this.onCreateQuiz,
+    required this.onEditQuiz,
   });
 
   final String accessToken;
   final List<String> videos;
+  final Map<String, String> videoTitles;
+  final List<QuizResumo> quizzes;
   final bool isLoading;
   final String? loadError;
   final Set<String> deletingVideos;
   final VoidCallback onRetry;
   final VoidCallback onAddVideo;
   final Future<void> Function(String videoName) onDeleteVideo;
+  final Future<void> Function(String videoName) onCreateQuiz;
+  final Future<void> Function(QuizResumo quiz) onEditQuiz;
 
   Future<void> _confirmDelete(BuildContext context, String videoName) async {
     final confirmed = await showDialog<bool>(
@@ -456,7 +935,11 @@ class _MyVideosPage extends StatelessWidget {
     if (confirmed == true) await onDeleteVideo(videoName);
   }
 
-  Future<void> _showPreview(BuildContext context, String videoName) {
+  Future<void> _showPreview(
+    BuildContext context,
+    String videoName,
+    String videoTitle,
+  ) {
     return showDialog<void>(
       context: context,
       builder: (context) => Dialog(
@@ -478,6 +961,7 @@ class _MyVideosPage extends StatelessWidget {
                 child: _FeedVideoCard(
                   accessToken: accessToken,
                   videoName: videoName,
+                  videoTitle: videoTitle,
                   isActive: true,
                 ),
               ),
@@ -492,7 +976,7 @@ class _MyVideosPage extends StatelessWidget {
   Widget build(BuildContext context) {
     if (isLoading && videos.isEmpty) {
       return const Center(
-        child: CircularProgressIndicator(color: Color(0xFF01D0AF)),
+        child: CircularProgressIndicator(color: AppTheme.navy),
       );
     }
 
@@ -561,7 +1045,15 @@ class _MyVideosPage extends StatelessWidget {
             itemCount: videos.length,
             itemBuilder: (context, index) {
               final videoName = videos[index];
+              final videoTitle = videoTitles[videoName] ?? videoName;
               final isDeleting = deletingVideos.contains(videoName);
+              QuizResumo? quiz;
+              for (final item in quizzes) {
+                if (item.videoId == videoName) {
+                  quiz = item;
+                  break;
+                }
+              }
               return Card(
                 margin: const EdgeInsets.only(bottom: 16),
                 clipBehavior: Clip.antiAlias,
@@ -582,9 +1074,15 @@ class _MyVideosPage extends StatelessWidget {
                             ),
                             const SizedBox(height: 8),
                             Text(
-                              videoName,
+                              videoTitle,
                               textAlign: TextAlign.center,
-                              style: const TextStyle(color: Colors.white),
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontFamily: AppTheme.displayFontFamily,
+                                fontWeight: FontWeight.w600,
+                              ),
                             ),
                           ],
                         ),
@@ -599,16 +1097,31 @@ class _MyVideosPage extends StatelessWidget {
                         children: [
                           Expanded(
                             child: Text(
-                              videoName,
+                              videoTitle,
                               overflow: TextOverflow.ellipsis,
                               style: const TextStyle(
                                 color: Color(0xFF0D1F43),
+                                fontFamily: AppTheme.displayFontFamily,
                                 fontWeight: FontWeight.w600,
                               ),
                             ),
                           ),
                           TextButton.icon(
-                            onPressed: () => _showPreview(context, videoName),
+                            onPressed: isDeleting
+                                ? null
+                                : () => quiz == null
+                                      ? onCreateQuiz(videoName)
+                                      : onEditQuiz(quiz),
+                            icon: Icon(
+                              quiz == null ? Icons.add_task : Icons.edit_note,
+                            ),
+                            label: Text(
+                              quiz == null ? 'Criar quiz' : 'Editar quiz',
+                            ),
+                          ),
+                          TextButton.icon(
+                            onPressed: () =>
+                                _showPreview(context, videoName, videoTitle),
                             icon: const Icon(Icons.play_arrow),
                             label: const Text('Assistir'),
                           ),
@@ -641,7 +1154,7 @@ class _MyVideosPage extends StatelessWidget {
               top: 0,
               left: 0,
               right: 0,
-              child: LinearProgressIndicator(color: Color(0xFF01D0AF)),
+              child: LinearProgressIndicator(color: AppTheme.navy),
             ),
           if (loadError != null)
             Positioned(
@@ -673,6 +1186,7 @@ class _FeedVideo extends StatefulWidget {
     super.key,
     required this.accessToken,
     required this.videos,
+    required this.videoTitles,
     required this.isLoading,
     required this.loadError,
     required this.onRetry,
@@ -680,6 +1194,7 @@ class _FeedVideo extends StatefulWidget {
 
   final String accessToken;
   final List<String> videos;
+  final Map<String, String> videoTitles;
   final bool isLoading;
   final String? loadError;
   final VoidCallback onRetry;
@@ -695,10 +1210,10 @@ class _FeedVideoState extends State<_FeedVideo> {
   Widget build(BuildContext context) {
     if (widget.videos.isEmpty) {
       return ColoredBox(
-        color: Colors.black,
+        color: AppTheme.background,
         child: Center(
           child: widget.isLoading
-              ? const CircularProgressIndicator(color: Color(0xFF01D0AF))
+              ? const CircularProgressIndicator(color: AppTheme.navy)
               : Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
@@ -706,7 +1221,7 @@ class _FeedVideoState extends State<_FeedVideo> {
                       widget.loadError == null
                           ? Icons.ondemand_video_outlined
                           : Icons.error_outline,
-                      color: Colors.white70,
+                      color: AppTheme.navy,
                       size: 48,
                     ),
                     const SizedBox(height: 12),
@@ -715,14 +1230,14 @@ class _FeedVideoState extends State<_FeedVideo> {
                           ? 'Ainda não há videoaulas disponíveis.'
                           : 'Não foi possível carregar as videoaulas.',
                       textAlign: TextAlign.center,
-                      style: const TextStyle(color: Colors.white),
+                      style: const TextStyle(color: AppTheme.navy),
                     ),
                     if (widget.loadError != null) ...[
                       const SizedBox(height: 8),
                       Text(
                         widget.loadError!,
                         textAlign: TextAlign.center,
-                        style: const TextStyle(color: Colors.white70),
+                        style: const TextStyle(color: Colors.black54),
                       ),
                       TextButton.icon(
                         onPressed: widget.onRetry,
@@ -749,6 +1264,9 @@ class _FeedVideoState extends State<_FeedVideo> {
             key: ValueKey(widget.videos[index]),
             accessToken: widget.accessToken,
             videoName: widget.videos[index],
+            videoTitle:
+                widget.videoTitles[widget.videos[index]] ??
+                widget.videos[index],
             isActive: index == _activeIndex,
           ),
         ),
@@ -783,11 +1301,13 @@ class _FeedVideoCard extends StatefulWidget {
     super.key,
     required this.accessToken,
     required this.videoName,
+    required this.videoTitle,
     required this.isActive,
   });
 
   final String accessToken;
   final String videoName;
+  final String videoTitle;
   final bool isActive;
 
   @override
@@ -942,14 +1462,14 @@ class _FeedVideoCardState extends State<_FeedVideoCard> {
   Widget _buildPlayer() {
     if (_loadError != null) {
       return ColoredBox(
-        color: Colors.black,
+        color: AppTheme.background,
         child: Center(
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               const Text(
                 'Não foi possível carregar o vídeo.',
-                style: TextStyle(color: Colors.white),
+                style: TextStyle(color: AppTheme.navy),
               ),
               const SizedBox(height: 8),
               Padding(
@@ -957,7 +1477,7 @@ class _FeedVideoCardState extends State<_FeedVideoCard> {
                 child: Text(
                   '$_loadError',
                   textAlign: TextAlign.center,
-                  style: const TextStyle(color: Colors.white70),
+                  style: const TextStyle(color: Colors.black54),
                 ),
               ),
               const SizedBox(height: 4),
@@ -968,7 +1488,7 @@ class _FeedVideoCardState extends State<_FeedVideoCard> {
                 },
                 icon: const Icon(Icons.refresh),
                 label: const Text('Tentar novamente'),
-                style: TextButton.styleFrom(foregroundColor: Colors.white),
+                style: TextButton.styleFrom(foregroundColor: AppTheme.navy),
               ),
             ],
           ),
@@ -979,10 +1499,8 @@ class _FeedVideoCardState extends State<_FeedVideoCard> {
     final controller = _controller;
     if (controller == null || !controller.value.isInitialized) {
       return const ColoredBox(
-        color: Colors.black,
-        child: Center(
-          child: CircularProgressIndicator(color: Color(0xFF01D0AF)),
-        ),
+        color: AppTheme.background,
+        child: Center(child: CircularProgressIndicator(color: AppTheme.navy)),
       );
     }
 
@@ -1006,11 +1524,44 @@ class _FeedVideoCardState extends State<_FeedVideoCard> {
             onTap: _handleVideoTap,
           ),
         ),
+        Positioned(
+          left: 16,
+          right: 16,
+          bottom: 24,
+          child: IgnorePointer(
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                color: Colors.black54,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 8,
+                ),
+                child: Text(
+                  widget.videoTitle,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 18,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
         if (_showControls) ...[
           IconButton(
             onPressed: _togglePlayback,
             iconSize: 64,
-            color: Colors.white,
+            style: IconButton.styleFrom(
+              backgroundColor: AppTheme.green,
+              foregroundColor: AppTheme.navy,
+              shape: const CircleBorder(),
+            ),
             icon: Icon(
               controller.value.isPlaying
                   ? Icons.pause_circle_filled
@@ -1022,7 +1573,11 @@ class _FeedVideoCardState extends State<_FeedVideoCard> {
             right: 8,
             child: IconButton(
               onPressed: _toggleMute,
-              color: Colors.white,
+              style: IconButton.styleFrom(
+                backgroundColor: AppTheme.green,
+                foregroundColor: AppTheme.navy,
+                shape: const CircleBorder(),
+              ),
               icon: Icon(_isMuted ? Icons.volume_off : Icons.volume_up),
             ),
           ),
