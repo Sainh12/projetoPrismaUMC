@@ -199,7 +199,7 @@ void main() {
 
         expect(registration.statusCode, 201);
         final professor = repository.users.single as Professor;
-        expect(professor.cndb, 'CNDB-123');
+        expect(professor.licenciatura, 'CNDB-123');
         expect(professor.materia, 'Matemática');
         expect(professor.toMap()['Professores'], {
           'id': professor.id,
@@ -249,7 +249,7 @@ void main() {
         );
         expect(updateResponse.statusCode, 204);
         final updatedProfessor = repository.users.single as Professor;
-        expect(updatedProfessor.cndb, 'CNDB-456');
+        expect(updatedProfessor.licenciatura, 'CNDB-456');
         expect(updatedProfessor.materia, 'Física');
       },
     );
