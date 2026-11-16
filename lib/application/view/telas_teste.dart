@@ -2,8 +2,8 @@ import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
-import 'package:projeto_base_prisma/application/view/CadastroAluno.dart';
-import 'package:projeto_base_prisma/application/view/HomeFeed.dart';
+import 'package:projeto_base_prisma/application/view/cadastro_aluno.dart';
+import 'package:projeto_base_prisma/application/view/home_feed.dart';
 import 'package:projeto_base_prisma/application/theme/app_theme.dart';
 
 class TelaTeste extends StatelessWidget {

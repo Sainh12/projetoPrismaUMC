@@ -30,6 +30,7 @@ abstract interface class QuizRepository {
   );
   Future<int> publicarQuiz(int id, String professorId);
   Future<int> excluirQuiz(int id, String professorId);
+  Future<void> excluirDadosUsuario(String userId);
   Future<QuizTentativa> registrarTentativa({
     required int quizId,
     required String alunoId,
@@ -144,18 +145,33 @@ class SqliteQuizRepository implements QuizRepository {
       for (final teacher in teachers)
         teacher['id'] as String: teacher['materia'] as String,
     };
+    final deletedTeacherIds = teacherIds
+        .where((teacherId) => !subjects.containsKey(teacherId))
+        .toList();
+    if (deletedTeacherIds.isNotEmpty) {
+      await db.transaction((transaction) async {
+        for (final teacherId in deletedTeacherIds) {
+          await transaction.delete(
+            'Quizzes',
+            where: 'professor_id = ?',
+            whereArgs: [teacherId],
+          );
+        }
+      });
+    }
 
     return [
       for (final row in rows)
-        QuizResumo(
-          id: row['id'] as int,
-          videoId: row['video_id'] as String,
-          titulo: (row['titulo'] as String).trim().isNotEmpty
-              ? row['titulo'] as String
-              : subjects[row['professor_id']] ?? 'Matéria não informada',
-          status: row['status'] as String,
-          quantidadeQuestoes: row['quantidade_questoes'] as int,
-        ),
+        if (subjects.containsKey(row['professor_id']))
+          QuizResumo(
+            id: row['id'] as int,
+            videoId: row['video_id'] as String,
+            titulo: (row['titulo'] as String).trim().isNotEmpty
+                ? row['titulo'] as String
+                : subjects[row['professor_id']] ?? 'Matéria não informada',
+            status: row['status'] as String,
+            quantidadeQuestoes: row['quantidade_questoes'] as int,
+          ),
     ];
   }
 
@@ -292,6 +308,23 @@ class SqliteQuizRepository implements QuizRepository {
       where: 'id = ? AND professor_id = ?',
       whereArgs: [id, professorId],
     );
+  }
+
+  @override
+  Future<void> excluirDadosUsuario(String userId) async {
+    final db = await _quizDatabase.database;
+    await db.transaction((transaction) async {
+      await transaction.delete(
+        'TentativasQuiz',
+        where: 'aluno_id = ?',
+        whereArgs: [userId],
+      );
+      await transaction.delete(
+        'Quizzes',
+        where: 'professor_id = ?',
+        whereArgs: [userId],
+      );
+    });
   }
 
   @override

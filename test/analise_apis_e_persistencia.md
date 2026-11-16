@@ -33,7 +33,7 @@ O snapshot da implementação anterior está em `backup/current_source_20261107_
 | `GET /api/users/info?email=...` | Bearer | Retorna os dados não secretos do usuário autenticado. Um token não pode consultar outro e-mail. |
 | `GET /api/users/id?email=...` | Bearer | Retorna o ID apenas quando o e-mail pertence ao titular do token. |
 | `PATCH /api/users/<id>` | Bearer | Atualiza os dados completos do titular, sem alterar a senha. |
-| `DELETE /api/users/<id>` | Bearer | Exclui apenas o titular, revoga suas sessões e apaga os arquivos de vídeo associados. |
+| `DELETE /api/users/<id>` | Bearer | Exclui apenas o titular, revoga suas sessões e remove seus vídeos, quizzes, perguntas e tentativas. |
 
 Envie JSON com `Content-Type: application/json`. Para as rotas privadas, inclua:
 
@@ -104,5 +104,5 @@ As correções tornam os fluxos locais coerentes, mas não eliminam decisões de
 ## Validação
 
 - `flutter test`: **15 testes passaram**; inclui cadastro/login, hash BCrypt e rehash legado, logout, respostas, isolamento por usuário, exclusão/revogação/limpeza, upload com limite, ranges e isolamento de arquivos.
-- `flutter analyze`: sem erros nem warnings; restam apenas 6 diagnósticos `info` de convenção de nomes em arquivos existentes: `Aluno.dart`, `Professor.dart`, `User.dart`, `TelasTeste.dart`, `gerenciadoBancoDeDados.dart` e `classePrincipal.dart`.
+- `flutter analyze`: sem erros, warnings ou diagnósticos `info`.
 - Hot restart foi tentado, mas não havia app conectado ao Dart Tooling Daemon. A tentativa de iniciar em Windows também revelou que este pacote ainda não tem plataforma Windows configurada; não foram gerados diretórios de plataforma nem adicionadas dependências de plataforma apenas para habilitar o hot restart.

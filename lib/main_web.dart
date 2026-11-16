@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:projeto_base_prisma/application/view/TelasTeste.dart';
+import 'package:projeto_base_prisma/application/view/telas_teste.dart';
 import 'package:projeto_base_prisma/application/view/file_picker_registration_web.dart'
     as file_picker_registration;
 
