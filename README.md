@@ -2,6 +2,35 @@
 
 Aplicação Flutter Web com uma API local em Dart/Shelf e persistência SQLite.
 
+## Capturas de tela
+
+<table>
+  <tr>
+    <td align="center"><strong>Login</strong><br><img src="telas/Captura%20de%20tela%202026-11-16%20152105.png" alt="Tela de login" width="300"></td>
+    <td align="center"><strong>Cadastro de videoaula</strong><br><img src="telas/Captura%20de%20tela%202026-11-16%20160249.png" alt="Tela para anexar uma videoaula" width="300"></td>
+  </tr>
+  <tr>
+    <td align="center"><strong>Edição de quiz</strong><br><img src="telas/Captura%20de%20tela%202026-11-16%20160639.png" alt="Tela de edição de quiz" width="300"></td>
+    <td align="center"><strong>Feed de videoaulas</strong><br><img src="telas/Captura%20de%20tela%202026-11-16%20160701.png" alt="Feed com uma videoaula" width="300"></td>
+  </tr>
+  <tr>
+    <td align="center"><strong>Perfil do professor</strong><br><img src="telas/Captura%20de%20tela%202026-11-16%20160732.png" alt="Perfil de professor" width="300"></td>
+    <td align="center"><strong>Quiz em rascunho</strong><br><img src="telas/Captura%20de%20tela%202026-11-16%20160745.png" alt="Lista de quizzes com um rascunho" width="300"></td>
+  </tr>
+  <tr>
+    <td align="center"><strong>Quiz publicado</strong><br><img src="telas/Captura%20de%20tela%202026-11-16%20161539.png" alt="Lista de quizzes publicados" width="300"></td>
+    <td align="center"><strong>Seus vídeos</strong><br><img src="telas/Captura%20de%20tela%202026-11-16%20161604.png" alt="Lista de videoaulas do professor" width="300"></td>
+  </tr>
+  <tr>
+    <td align="center"><strong>Quizzes disponíveis</strong><br><img src="telas/Captura%20de%20tela%202026-11-16%20161725.png" alt="Lista de quizzes para o aluno" width="300"></td>
+    <td align="center"><strong>Responder quiz</strong><br><img src="telas/Captura%20de%20tela%202026-11-16%20161750.png" alt="Tela de resposta de quiz" width="300"></td>
+  </tr>
+  <tr>
+    <td align="center"><strong>Resultado e tentativas</strong><br><img src="telas/Captura%20de%20tela%202026-11-16%20161820.png" alt="Histórico de tentativas e respostas do quiz" width="300"></td>
+    <td></td>
+  </tr>
+</table>
+
 ## Requisitos
 
 - Flutter e Dart instalados e disponíveis no terminal.
@@ -70,6 +99,8 @@ As rotas protegidas exigem `Authorization: Bearer <token>` obtido no login.
 - `POST /api/users/cadastrar` — cria uma conta de aluno ou professor.
 - `POST /api/users/acesso` — autentica e cria uma sessão.
 - `POST /api/users/logout` — encerra a sessão atual.
+- `DELETE /api/users/<id>` — exclui a conta autenticada, revoga suas sessões e
+  remove seus vídeos, quizzes e tentativas.
 - `/api/users/...` — consulta, atualiza ou exclui a conta autenticada.
 - `POST /api/upload` — envia os campos multipart `video` e `title` (obrigatório,
   até 120 caracteres); apenas professores.
@@ -97,3 +128,10 @@ As rotas protegidas exigem `Authorization: Bearer <token>` obtido no login.
 
 Detalhes adicionais sobre validação, limites, armazenamento e pendências estão
 em [test/analise_apis_e_persistencia.md](test/analise_apis_e_persistencia.md).
+
+# Integrantes do Grupo 
+
+- Emilly Naiara da Silva
+- Giovanna Velloni Vieira
+- Sabrina Vilela Raimundo
+- Saimon Farias dos Passos Rosa

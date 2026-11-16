@@ -4,10 +4,10 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:projeto_base_prisma/application/theme/app_theme.dart';
-import 'package:projeto_base_prisma/application/view/CadastroVideoPage.dart';
-import 'package:projeto_base_prisma/application/view/PerfilPage.dart';
+import 'package:projeto_base_prisma/application/view/cadastro_video_page.dart';
+import 'package:projeto_base_prisma/application/view/perfil_page.dart';
 import 'package:projeto_base_prisma/application/view/quiz_attempt_page.dart';
-import 'package:projeto_base_prisma/application/view/QuizEditorPage.dart';
+import 'package:projeto_base_prisma/application/view/quiz_editor_page.dart';
 import 'package:projeto_base_prisma/domain/quiz_resumo.dart';
 import 'package:projeto_base_prisma/domain/video_resumo.dart';
 import 'package:projeto_base_prisma/application/view/video_source_stub.dart'
@@ -103,6 +103,15 @@ class _HomeFeedPageState extends State<HomeFeedPage> {
   }
 
   bool get _isProfessor => _profile['tipo_usuario'] == 'professor';
+
+  void _selectTab(int index) {
+    setState(() => _selectedTab = index);
+    if (index == 1) unawaited(_loadQuizzes());
+    if (index == 3 && _isProfessor) {
+      unawaited(_loadMyVideos());
+      unawaited(_loadQuizzes());
+    }
+  }
 
   void _updateProfile(Map<String, dynamic> profile) {
     setState(() => _profile = profile);
@@ -486,7 +495,7 @@ class _HomeFeedPageState extends State<HomeFeedPage> {
     final isSelected = _selectedTab == index;
     return Expanded(
       child: IconButton(
-        onPressed: () => setState(() => _selectedTab = index),
+        onPressed: () => _selectTab(index),
         tooltip: label,
         icon: Icon(
           icon,
@@ -517,9 +526,7 @@ class _HomeFeedPageState extends State<HomeFeedPage> {
                       ),
                       child: PopupMenuButton<int>(
                         tooltip: 'Abrir navegação',
-                        onSelected: (index) => setState(() {
-                          _selectedTab = index;
-                        }),
+                        onSelected: _selectTab,
                         color: const Color(0xFF0D1F43),
                         iconColor: Colors.white,
                         icon: const Icon(Icons.menu),
@@ -580,21 +587,32 @@ class _HomeFeedPageState extends State<HomeFeedPage> {
                           ),
                         ),
                         if (_selectedTab == 1)
-                          TextButton.icon(
-                            onPressed: _showQuizFilter,
-                            icon: const Icon(Icons.filter_list, size: 18),
-                            label: const Text('Filtrar'),
-                            style: TextButton.styleFrom(
-                              foregroundColor: Colors.black,
-                              backgroundColor: const Color(0xFF01D0AF),
-                              minimumSize: const Size(103, 34),
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 12,
+                          Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              IconButton(
+                                onPressed: _loadQuizzes,
+                                tooltip: 'Atualizar quizzes',
+                                icon: const Icon(Icons.refresh),
+                                color: Colors.white,
                               ),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(15),
+                              TextButton.icon(
+                                onPressed: _showQuizFilter,
+                                icon: const Icon(Icons.filter_list, size: 18),
+                                label: const Text('Filtrar'),
+                                style: TextButton.styleFrom(
+                                  foregroundColor: Colors.black,
+                                  backgroundColor: const Color(0xFF01D0AF),
+                                  minimumSize: const Size(103, 34),
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 12,
+                                  ),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(15),
+                                  ),
+                                ),
                               ),
-                            ),
+                            ],
                           ),
                       ],
                     ),

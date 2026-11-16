@@ -1,9 +1,9 @@
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:projeto_base_prisma/domain/Aluno.dart';
-import 'package:projeto_base_prisma/domain/Professor.dart';
-import 'package:projeto_base_prisma/domain/User.dart';
+import 'package:projeto_base_prisma/domain/aluno.dart';
+import 'package:projeto_base_prisma/domain/professor.dart';
+import 'package:projeto_base_prisma/domain/user.dart';
 import 'package:projeto_base_prisma/infraestructure/repository/user_repository.dart';
 import 'package:projeto_base_prisma/infraestructure/security/password_hasher.dart';
 import 'package:projeto_base_prisma/infraestructure/security/session_store.dart';
@@ -92,10 +92,7 @@ class LoginApi {
     if (type == 'aluno') {
       final serie = _requiredString(data, 'serie');
       if (serie == null) {
-        throw const _RequestException(
-          400,
-          'serie é obrigatória',
-        );
+        throw const _RequestException(400, 'serie é obrigatória');
       }
       user = Aluno.fromJson(null, {
         ...data,

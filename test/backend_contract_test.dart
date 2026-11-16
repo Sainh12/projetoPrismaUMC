@@ -1,9 +1,9 @@
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:projeto_base_prisma/domain/Aluno.dart';
-import 'package:projeto_base_prisma/domain/Professor.dart';
-import 'package:projeto_base_prisma/domain/User.dart';
+import 'package:projeto_base_prisma/domain/aluno.dart';
+import 'package:projeto_base_prisma/domain/professor.dart';
+import 'package:projeto_base_prisma/domain/user.dart';
 import 'package:projeto_base_prisma/domain/pergunta.dart';
 import 'package:projeto_base_prisma/domain/pergunta_rascunho.dart';
 import 'package:projeto_base_prisma/domain/quiz.dart';
@@ -1540,6 +1540,22 @@ class _MemoryQuizRepository implements QuizRepository {
     questions.removeWhere((question) => question.quizId == id);
     attempts.removeWhere((attempt) => attempt.quizId == id);
     return 1;
+  }
+
+  @override
+  Future<void> excluirDadosUsuario(String userId) async {
+    final quizIds = quizzes.values
+        .where((quiz) => quiz.professorId == userId)
+        .map((quiz) => quiz.id)
+        .toSet();
+    quizzes.removeWhere((_, quiz) => quiz.professorId == userId);
+    questions.removeWhere((question) => quizIds.contains(question.quizId));
+    attempts.removeWhere(
+      (attempt) =>
+          attempt.alunoId == userId || quizIds.contains(attempt.quizId),
+    );
+    roles.remove(userId);
+    subjects.remove(userId);
   }
 
   @override

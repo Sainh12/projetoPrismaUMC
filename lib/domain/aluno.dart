@@ -1,4 +1,4 @@
-import 'User.dart';
+import 'user.dart';
 
 class Aluno extends User {
   Aluno({

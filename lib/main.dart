@@ -1,10 +1,10 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
-import 'package:projeto_base_prisma/application/view/TelasTeste.dart';
+import 'package:projeto_base_prisma/application/view/telas_teste.dart';
 import 'package:projeto_base_prisma/infraestructure/controller/http/file_controller_api.dart';
 import 'package:projeto_base_prisma/infraestructure/controller/http/login_api.dart';
-import 'package:projeto_base_prisma/infraestructure/repository/gerenciadoBancoDeDados.dart';
+import 'package:projeto_base_prisma/infraestructure/repository/gerenciado_banco_de_dados.dart';
 import 'package:projeto_base_prisma/infraestructure/repository/app_database_factory.dart';
 import 'package:projeto_base_prisma/infraestructure/controller/http/quiz_api.dart';
 import 'package:projeto_base_prisma/infraestructure/repository/quiz_repository.dart';
@@ -18,6 +18,7 @@ Future<void> main() async {
   configureDatabaseFactory(sqflite.databaseFactory);
   final sessions = SessionStore();
   final userRepository = GerenciadorBancoDeDados();
+  final quizRepository = SqliteQuizRepository();
   final fileApi = FileController(
     sessions: sessions,
     isProfessor: userRepository.isProfessorById,
@@ -25,13 +26,16 @@ Future<void> main() async {
   final loginApi = LoginApi(
     repository: userRepository,
     sessions: sessions,
-    onUserDeleted: fileApi.deleteUserFiles,
+    onUserDeleted: (userId) async {
+      await quizRepository.excluirDadosUsuario(userId);
+      await fileApi.deleteUserFiles(userId);
+    },
   );
   final quizApi = QuizApi(
     sessions: sessions,
     isVideoOwnedByUser: fileApi.isVideoOwnedByUser,
     titleForVideo: fileApi.titleForVideo,
-    repository: SqliteQuizRepository(),
+    repository: quizRepository,
   );
   loginApi.router.mount('/api/quiz/', quizApi.handler);
   final loginServer = await loginApi.start();

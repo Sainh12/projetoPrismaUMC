@@ -1,4 +1,4 @@
-import 'package:projeto_base_prisma/domain/User.dart';
+import 'package:projeto_base_prisma/domain/user.dart';
 
 abstract interface class UserRepository {
   Future<int> insertUser(User user, {required String passwordHash});

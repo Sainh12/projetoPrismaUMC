@@ -1,4 +1,4 @@
-import 'User.dart';
+import 'user.dart';
 
 class Professor extends User {
   Professor({

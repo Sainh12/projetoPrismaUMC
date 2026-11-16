@@ -36,6 +36,7 @@ class _PerfilPageState extends State<PerfilPage> {
   bool _isEditing = false;
   bool _isSaving = false;
   bool _isLoggingOut = false;
+  bool _isDeletingAccount = false;
 
   bool get _isStudent => _profile['tipo_usuario'] == 'aluno';
 
@@ -236,6 +237,68 @@ class _PerfilPageState extends State<PerfilPage> {
     }
   }
 
+  Future<void> _confirmAndDeleteAccount() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Excluir conta permanentemente?'),
+        content: const Text(
+          'Esta ação não pode ser desfeita. Seu perfil, vídeos, quizzes e '
+          'resultados serão excluídos. Deseja continuar?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            style: FilledButton.styleFrom(
+              backgroundColor: Colors.red.shade700,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('Excluir conta'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true || !mounted) return;
+    await _deleteAccount();
+  }
+
+  Future<void> _deleteAccount() async {
+    setState(() => _isDeletingAccount = true);
+    try {
+      final response = await http
+          .delete(
+            Uri.parse('http://localhost:8080/api/users/${_profile['id']}'),
+            headers: {'Authorization': 'Bearer ${widget.accessToken}'},
+          )
+          .timeout(const Duration(seconds: 15));
+
+      if (response.statusCode != 204) {
+        final decoded = response.body.isEmpty
+            ? null
+            : jsonDecode(response.body);
+        final data = decoded is Map<String, dynamic>
+            ? decoded
+            : <String, dynamic>{};
+        throw Exception(data['message'] ?? 'Não foi possível excluir a conta.');
+      }
+
+      if (mounted) widget.onLoggedOut();
+    } catch (error) {
+      if (!mounted) return;
+      final message = error.toString().replaceFirst('Exception: ', '');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Falha ao excluir conta: $message')),
+      );
+    } finally {
+      if (mounted) setState(() => _isDeletingAccount = false);
+    }
+  }
+
   Widget _profileField({
     required String label,
     required TextEditingController controller,
@@ -315,7 +378,8 @@ class _PerfilPageState extends State<PerfilPage> {
                             label: 'CPF',
                             controller: _cpfController,
                             labelAction: IconButton(
-                              onPressed: _isEditing || _isSaving
+                              onPressed:
+                                  _isEditing || _isSaving || _isDeletingAccount
                                   ? null
                                   : () => setState(() => _isEditing = true),
                               tooltip: 'Editar perfil',
@@ -384,7 +448,7 @@ class _PerfilPageState extends State<PerfilPage> {
                               children: [
                                 Expanded(
                                   child: OutlinedButton(
-                                    onPressed: _isSaving
+                                    onPressed: _isSaving || _isDeletingAccount
                                         ? null
                                         : _cancelEditing,
                                     child: const Text('Cancelar'),
@@ -393,7 +457,7 @@ class _PerfilPageState extends State<PerfilPage> {
                                 const SizedBox(width: 12),
                                 Expanded(
                                   child: FilledButton(
-                                    onPressed: _isSaving
+                                    onPressed: _isSaving || _isDeletingAccount
                                         ? null
                                         : _confirmAndSave,
                                     style: FilledButton.styleFrom(
@@ -419,7 +483,7 @@ class _PerfilPageState extends State<PerfilPage> {
                           SizedBox(
                             height: 48,
                             child: FilledButton(
-                              onPressed: _isLoggingOut
+                              onPressed: _isLoggingOut || _isDeletingAccount
                                   ? null
                                   : _confirmAndLogout,
                               style: FilledButton.styleFrom(
@@ -439,6 +503,39 @@ class _PerfilPageState extends State<PerfilPage> {
                                       ),
                                     )
                                   : const Text('Sair da conta'),
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          SizedBox(
+                            height: 48,
+                            child: OutlinedButton.icon(
+                              onPressed:
+                                  _isDeletingAccount ||
+                                      _isLoggingOut ||
+                                      _isSaving
+                                  ? null
+                                  : _confirmAndDeleteAccount,
+                              style: OutlinedButton.styleFrom(
+                                foregroundColor: Colors.red.shade700,
+                                side: BorderSide(color: Colors.red.shade700),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(15),
+                                ),
+                              ),
+                              icon: _isDeletingAccount
+                                  ? const SizedBox(
+                                      width: 20,
+                                      height: 20,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                      ),
+                                    )
+                                  : const Icon(Icons.delete_outline),
+                              label: Text(
+                                _isDeletingAccount
+                                    ? 'Excluindo conta...'
+                                    : 'Excluir conta',
+                              ),
                             ),
                           ),
                         ],

@@ -4,7 +4,8 @@ import 'package:projeto_base_prisma/infraestructure/controller/http/file_control
 import 'package:projeto_base_prisma/infraestructure/controller/http/login_api.dart';
 import 'package:projeto_base_prisma/infraestructure/controller/http/quiz_api.dart';
 import 'package:projeto_base_prisma/infraestructure/repository/app_database_factory.dart';
-import 'package:projeto_base_prisma/infraestructure/repository/gerenciadoBancoDeDados.dart';
+import 'package:projeto_base_prisma/infraestructure/repository/gerenciado_banco_de_dados.dart';
+import 'package:projeto_base_prisma/infraestructure/repository/quiz_repository.dart';
 import 'package:projeto_base_prisma/infraestructure/security/session_store.dart';
 import 'package:path/path.dart' as p;
 import 'package:shelf/shelf.dart';
@@ -26,6 +27,7 @@ Future<void> main() async {
 
   final repository = GerenciadorBancoDeDados();
   final sessions = SessionStore();
+  final quizRepository = SqliteQuizRepository();
   final fileApi = FileController(
     sessions: sessions,
     isProfessor: repository.isProfessorById,
@@ -34,9 +36,17 @@ Future<void> main() async {
   final loginApi = LoginApi(
     repository: repository,
     sessions: sessions,
-    onUserDeleted: fileApi.deleteUserFiles,
+    onUserDeleted: (userId) async {
+      await quizRepository.excluirDadosUsuario(userId);
+      await fileApi.deleteUserFiles(userId);
+    },
   );
-  final quizApi = QuizApi(sessions: sessions);
+  final quizApi = QuizApi(
+    sessions: sessions,
+    isVideoOwnedByUser: fileApi.isVideoOwnedByUser,
+    titleForVideo: fileApi.titleForVideo,
+    repository: quizRepository,
+  );
   loginApi.router.mount('/api/quiz/', quizApi.handler);
 
   final loginServer = await shelf_io.serve(
@@ -67,7 +77,7 @@ Future<void> main() async {
 Handler _withDevelopmentCors(Handler inner) {
   const corsHeaders = {
     'access-control-allow-origin': '*',
-    'access-control-allow-methods': 'GET, POST, PATCH, DELETE, OPTIONS',
+    'access-control-allow-methods': 'GET, POST, PUT, PATCH, DELETE, OPTIONS',
     'access-control-allow-headers': 'Origin, Content-Type, Authorization',
     'access-control-max-age': '600',
   };

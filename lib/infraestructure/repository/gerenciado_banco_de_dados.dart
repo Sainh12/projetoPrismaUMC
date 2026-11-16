@@ -1,6 +1,6 @@
-import 'package:projeto_base_prisma/domain/Aluno.dart';
-import 'package:projeto_base_prisma/domain/Professor.dart';
-import 'package:projeto_base_prisma/domain/User.dart';
+import 'package:projeto_base_prisma/domain/aluno.dart';
+import 'package:projeto_base_prisma/domain/professor.dart';
+import 'package:projeto_base_prisma/domain/user.dart';
 import 'package:projeto_base_prisma/infraestructure/repository/database_helper_users.dart';
 import 'package:projeto_base_prisma/infraestructure/repository/user_repository.dart';
 import 'package:sqflite_common/sqlite_api.dart';
